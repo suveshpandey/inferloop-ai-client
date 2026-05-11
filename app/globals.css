@@ -128,3 +128,34 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 1; }
+  }
+  @keyframes flow {
+    0%   { left: -3rem; opacity: 0; }
+    15%  { opacity: 1; }
+    85%  { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+  .animate-fade-up      { animation: fade-up 0.7s ease-out backwards; }
+  .animate-pulse-soft   { animation: pulse-soft 2.4s ease-in-out infinite; }
+  .animate-flow         { animation: flow 3.2s linear infinite; }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(to right,  oklch(1 0 0 / 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(1 0 0 / 0.04) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .mask-radial-fade {
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, black 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, black 30%, transparent 75%);
+  }
+}

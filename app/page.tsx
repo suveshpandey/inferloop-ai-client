@@ -1,65 +1,168 @@
-import Image from "next/image";
+'use client';
+
+import { Fragment } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
+import { buttonVariants } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { HeroVisual } from '@/components/HeroVisual';
+
+const AGENTS = [
+    { name: 'Analyzer',  desc: 'Surfaces bugs, smells, security and perf risk in your source.', glyph: '01' },
+    { name: 'Critic',    desc: 'Audits each finding — keep, drop, or refine with a reason.',     glyph: '02' },
+    { name: 'Improver',  desc: 'Rewrites the code against the verified, surviving issues.',      glyph: '03' },
+    { name: 'Evaluator', desc: 'Scores the rewrite — improved, unchanged, or regressed.',        glyph: '04' },
+];
 
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    const auth = useAuth();
+
+    return (
+        <div className="relative overflow-hidden">
+            {/* Background grid + radial fade */}
+            <div className="pointer-events-none absolute inset-0 bg-grid mask-radial-fade" aria-hidden />
+
+            {/* HERO — two-column on lg+ */}
+            <section className="relative mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 pt-24 pb-16 sm:pt-32 sm:pb-24 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16">
+                <div>
+                    {/* Tag pill */}
+                    <Badge
+                        variant="outline"
+                        className="animate-fade-up h-auto gap-2 rounded-full bg-card/50 px-3 py-1 text-xs font-normal"
+                        style={{ animationDelay: '0ms' }}
+                    >
+                        <span className="relative flex h-1.5 w-1.5">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-foreground/60 opacity-60" />
+                            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-foreground" />
+                        </span>
+                        <span className="font-mono uppercase tracking-widest text-muted-foreground">
+                            Multi-agent review · streaming
+                        </span>
+                    </Badge>
+
+                    {/* Headline */}
+                    <h1
+                        className="animate-fade-up mt-8 text-balance text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl"
+                        style={{ animationDelay: '80ms' }}
+                    >
+                        Four agents.
+                        <br />
+                        <span className="text-muted-foreground">One </span>
+                        <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
+                            honest
+                        </span>
+                        <span className="text-muted-foreground"> review.</span>
+                    </h1>
+
+                    <p
+                        className="animate-fade-up mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
+                        style={{ animationDelay: '160ms' }}
+                    >
+                        InferLoop runs your code through an Analyzer, a Critic, an Improver, and an
+                        Evaluator — each one auditing the last. Results stream back as they happen,
+                        so you watch the review unfold instead of waiting for a black box.
+                    </p>
+
+                    {/* CTAs */}
+                    <div
+                        className="animate-fade-up mt-10 flex flex-col gap-3 sm:flex-row"
+                        style={{ animationDelay: '240ms' }}
+                    >
+                        {auth.status === 'authenticated' ? (
+                            <Link href="/review" className={buttonVariants({ size: 'lg' })}>
+                                Start a review →
+                            </Link>
+                        ) : (
+                            <>
+                                <Link href="/signup" className={buttonVariants({ size: 'lg' })}>
+                                    Get started →
+                                </Link>
+                                <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+                                    Log in
+                                </Link>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right column: animated review console */}
+                <div
+                    className="animate-fade-up"
+                    style={{ animationDelay: '320ms' }}
+                >
+                    <HeroVisual />
+                </div>
+            </section>
+
+            {/* Pipeline flow visualization */}
+            <section className="relative mx-auto max-w-6xl px-6 pb-16">
+                <div
+                    className="animate-fade-up"
+                    style={{ animationDelay: '440ms' }}
+                >
+                    <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                        The pipeline
+                    </p>
+                    <div className="relative overflow-hidden rounded-xl border border-border bg-card/40 p-6">
+                        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground sm:text-xs">
+                            {AGENTS.map((a, i) => (
+                                <Fragment key={a.name}>
+                                    <div className="flex shrink-0 items-center gap-2">
+                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground">
+                                            {a.glyph}
+                                        </div>
+                                        <span className="hidden truncate sm:inline">{a.name}</span>
+                                    </div>
+                                    {i < AGENTS.length - 1 && (
+                                        <div className="relative h-px flex-1 overflow-hidden">
+                                            <div className="h-px w-full bg-border" />
+                                            <div
+                                                className="animate-flow absolute top-1/2 h-px w-12 -translate-y-1/2 bg-gradient-to-r from-transparent via-foreground to-transparent"
+                                                style={{ animationDelay: `${i * 0.4}s` }}
+                                            />
+                                        </div>
+                                    )}
+                                </Fragment>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* Agent cards */}
+            <section className="relative mx-auto max-w-6xl px-6 pb-20">
+                <p className="mb-6 font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                    What each agent does
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {AGENTS.map((a, i) => (
+                        <Card
+                            key={a.name}
+                            className="animate-fade-up group relative gap-0 bg-card/50 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:bg-card hover:ring-foreground/30"
+                            style={{ animationDelay: `${520 + i * 80}ms` }}
+                        >
+                            <div className="flex items-baseline justify-between">
+                                <p className="font-mono text-sm font-semibold">{a.name}</p>
+                                <span className="font-mono text-xs text-muted-foreground transition-colors group-hover:text-foreground">
+                                    {a.glyph}
+                                </span>
+                            </div>
+                            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                                {a.desc}
+                            </p>
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-foreground/30 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                        </Card>
+                    ))}
+                </div>
+
+                <p
+                    className="animate-fade-up mt-16 font-mono text-xs text-muted-foreground"
+                    style={{ animationDelay: '880ms' }}
+                >
+                    Local-first · powered by Ollama · 100% your code, your machine.
+                </p>
+            </section>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+    );
 }
