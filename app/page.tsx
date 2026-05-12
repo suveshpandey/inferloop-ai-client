@@ -7,6 +7,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { HeroVisual } from '@/components/HeroVisual';
+import { Meteors } from '@/components/Meteors';
 
 const AGENTS = [
     { name: 'Analyzer',  desc: 'Surfaces bugs, smells, security and perf risk in your source.', glyph: '01' },
@@ -20,8 +21,8 @@ export default function Home() {
 
     return (
         <div className="relative overflow-hidden">
-            {/* Background grid + radial fade */}
-            <div className="pointer-events-none absolute inset-0 bg-grid mask-radial-fade" aria-hidden />
+            {/* Meteors — diagonal streaks travelling top-left → bottom-right */}
+            <Meteors />
 
             {/* HERO — two-column on lg+ */}
             <section className="relative mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 pt-24 pb-16 sm:pt-32 sm:pb-24 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16">

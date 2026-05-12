@@ -144,9 +144,23 @@
     85%  { opacity: 1; }
     100% { left: 100%; opacity: 0; }
   }
+  @keyframes meteor {
+    0%   { transform: translate(0, 0) rotate(45deg); opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { transform: translate(140vmax, 140vmax) rotate(45deg); opacity: 0; }
+  }
   .animate-fade-up      { animation: fade-up 0.7s ease-out backwards; }
   .animate-pulse-soft   { animation: pulse-soft 2.4s ease-in-out infinite; }
   .animate-flow         { animation: flow 3.2s linear infinite; }
+  .animate-meteor {
+    animation-name: meteor;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    /* Apply the 0% keyframe state (opacity:0, rotated) during animation-delay,
+       otherwise the un-animated horizontal bar flashes before its first run. */
+    animation-fill-mode: backwards;
+  }
 
   .bg-grid {
     background-image:

@@ -185,7 +185,7 @@ type ReviewStreamOpts = {
  * Rejects on network errors or non-2xx responses.
  */
 export async function reviewStream(
-    input: { code: string; language: string },
+    input: { code: string; language: string; maxIterations?: number },
     { onEvent, signal }: ReviewStreamOpts,
 ): Promise<void> {
     const doFetch = async (token: string | null): Promise<Response> => {

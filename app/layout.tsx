@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Header } from "@/components/Header";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,6 +18,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "InferLoop AI",
   description: "Multi-agent code analysis — analyze, critique, improve, evaluate.",
+  icons: {
+    icon: [
+      { url: "/inferloop-ai-favicon.png", type: "image/png" },
+    ],
+    shortcut: "/inferloop-ai-favicon.png",
+    apple:    "/inferloop-ai-favicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -34,6 +42,7 @@ export default function RootLayout({
         <AuthProvider>
           <Header />
           <main className="flex-1">{children}</main>
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

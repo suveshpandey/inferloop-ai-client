@@ -1,11 +1,18 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button, buttonVariants } from '@/components/ui/button';
 
 export function Header() {
     const auth = useAuth();
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await auth.logout();
+        router.replace('/login');
+    };
 
     return (
         <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-md">
@@ -39,7 +46,7 @@ export function Header() {
                             <span className="hidden font-mono text-sm text-muted-foreground sm:inline">
                                 {auth.user.email}
                             </span>
-                            <Button variant="outline" onClick={() => auth.logout()} className="font-mono text-[15px] h-9 px-3.5">
+                            <Button variant="outline" onClick={handleLogout} className="font-mono text-[15px] h-9 px-3.5">
                                 Log out
                             </Button>
                         </>

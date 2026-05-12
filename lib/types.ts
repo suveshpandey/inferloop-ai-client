@@ -84,6 +84,25 @@ export type ReviewResult = {
     evaluation: EvaluatorOutput;
 };
 
+// ─────────────────────── Iterative loop result ─────────────────────────────
+
+export type TerminationReason =
+    | 'converged'        // evaluator: unchanged
+    | 'regressed'        // evaluator: regressed (rolled back)
+    | 'no-findings'      // analyzer found nothing
+    | 'max-iterations';  // hit the cap
+
+export type IterationResult = ReviewResult & {
+    iteration: number;       // 1-based
+    inputCode: string;       // what was fed in for this iteration
+};
+
+export type LoopResult = {
+    iterations:        IterationResult[];
+    finalCode:         string;
+    terminationReason: TerminationReason;
+};
+
 // ──────────────────────────────── Auth ─────────────────────────────────────
 
 export type AuthSession = {
@@ -107,14 +126,22 @@ export type MeResponse = {
 
 export type Stage = 'analyzer' | 'critic' | 'improver' | 'evaluator';
 
+// Every per-stage event carries `iteration` (1-based) so the frontend can
+// group events under the right iteration card. `loop_start`/`iteration_*`
+// /`loop_complete` are loop-level milestones. `done` carries the full loop
+// result so reconnecting clients can render the final state without replay.
 export type StreamEvent =
-    | { type: 'stage_start';    stage: Stage }
-    | { type: 'stage_complete'; stage: 'analyzer';  result: AnalyzerOutput }
-    | { type: 'stage_complete'; stage: 'critic';    result: CriticOutput }
-    | { type: 'stage_complete'; stage: 'improver';  result: ImproverOutput }
-    | { type: 'stage_complete'; stage: 'evaluator'; result: EvaluatorOutput }
-    | { type: 'done';  result: ReviewResult }
-    | { type: 'error'; error:  string };
+    | { type: 'loop_start';         maxIterations: number }
+    | { type: 'iteration_start';    iteration: number }
+    | { type: 'stage_start';        iteration: number; stage: Stage }
+    | { type: 'stage_complete';     iteration: number; stage: 'analyzer';  result: AnalyzerOutput }
+    | { type: 'stage_complete';     iteration: number; stage: 'critic';    result: CriticOutput }
+    | { type: 'stage_complete';     iteration: number; stage: 'improver';  result: ImproverOutput }
+    | { type: 'stage_complete';     iteration: number; stage: 'evaluator'; result: EvaluatorOutput }
+    | { type: 'iteration_complete'; iteration: number; result: IterationResult }
+    | { type: 'loop_complete';      result: LoopResult }
+    | { type: 'done';               result: LoopResult }
+    | { type: 'error';              error: string };
 
 // ───────────────────────── API error envelope ──────────────────────────────
 

@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { ApiRequestError } from '@/lib/api';
+import { AuthAside } from '@/components/AuthAside';
+import { notifyError } from '@/lib/notify';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function SignupPage() {
     const auth = useAuth();
@@ -16,41 +18,38 @@ export default function SignupPage() {
     const [email, setEmail] = useState('');
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
-        if (auth.status === 'authenticated') router.replace('/');
+        if (auth.status === 'authenticated') router.replace('/review');
     }, [auth.status, router]);
 
     const onSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setError(null);
         setSubmitting(true);
         try {
             await auth.signup(email, password, username.trim() || undefined);
-            router.replace('/');
+            router.replace('/review');
         } catch (err) {
-            setError(
-                err instanceof ApiRequestError
-                    ? err.message
-                    : 'Sign up failed. Please try again.',
-            );
+            notifyError(err, { description: 'Sign up failed. Please try again.' });
             setSubmitting(false);
         }
     };
 
     return (
-        <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden">
-            <div className="relative mx-auto flex w-full max-w-md flex-col px-6 py-20">
+        <div className="grid min-h-[calc(100vh-4rem)] grid-cols-1 lg:grid-cols-2">
+            <AuthAside mode="signup" />
+
+            <div className="flex flex-col justify-center px-6 py-16">
+              <div className="mx-auto flex w-full max-w-md flex-col">
                 {/* Heading */}
                 <div className="animate-fade-up mb-8 space-y-3">
                     <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                         Create account
                     </p>
-                    <h1 className="text-3xl font-semibold tracking-tight">Get started</h1>
+                    <h1 className="text-3xl font-semibold tracking-tight">Get started.</h1>
                     <p className="text-sm text-muted-foreground">
-                        Spin up an account to start running multi-agent reviews.
+                        Set up an account in seconds — your first review is moments away.
                     </p>
                 </div>
 
@@ -123,21 +122,19 @@ export default function SignupPage() {
                             />
                         </div>
 
-                        {error && (
-                            <div
-                                role="alert"
-                                className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 font-mono text-xs text-rose-300"
-                            >
-                                {error}
-                            </div>
-                        )}
-
                         <Button
                             type="submit"
                             disabled={submitting}
                             className="h-10 w-full font-mono text-[15px]"
                         >
-                            {submitting ? 'Creating account…' : 'Create account →'}
+                            {submitting ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <Spinner size="sm" />
+                                    Creating account…
+                                </span>
+                            ) : (
+                                'Create account →'
+                            )}
                         </Button>
                     </form>
                 </Card>
@@ -155,6 +152,7 @@ export default function SignupPage() {
                         Log in
                     </Link>
                 </p>
+              </div>
             </div>
         </div>
     );
