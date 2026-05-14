@@ -1,13 +1,15 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { HeroVisual } from '@/components/HeroVisual';
 import { Meteors } from '@/components/Meteors';
+import { LoadingState } from '@/components/ui/spinner';
 
 const AGENTS = [
     { name: 'Analyzer',  desc: 'Surfaces bugs, smells, security and perf risk in your source.', glyph: '01' },
@@ -18,6 +20,21 @@ const AGENTS = [
 
 export default function Home() {
     const auth = useAuth();
+    const router = useRouter();
+
+    // Authenticated users skip the landing page entirely — same flow as /login
+    // and /signup. Keeps the marketing surface for visitors only.
+    useEffect(() => {
+        if (auth.status === 'authenticated') router.replace('/review');
+    }, [auth.status, router]);
+
+    if (auth.status === 'loading' || auth.status === 'authenticated') {
+        return (
+            <div className="flex min-h-[60vh] items-center justify-center">
+                <LoadingState label="Loading" />
+            </div>
+        );
+    }
 
     return (
         <div className="relative overflow-hidden">
@@ -70,20 +87,12 @@ export default function Home() {
                         className="animate-fade-up mt-10 flex flex-col gap-3 sm:flex-row"
                         style={{ animationDelay: '240ms' }}
                     >
-                        {auth.status === 'authenticated' ? (
-                            <Link href="/review" className={buttonVariants({ size: 'lg' })}>
-                                Start a review →
-                            </Link>
-                        ) : (
-                            <>
-                                <Link href="/signup" className={buttonVariants({ size: 'lg' })}>
-                                    Get started →
-                                </Link>
-                                <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
-                                    Log in
-                                </Link>
-                            </>
-                        )}
+                        <Link href="/signup" className={buttonVariants({ size: 'lg' })}>
+                            Get started →
+                        </Link>
+                        <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
+                            Log in
+                        </Link>
                     </div>
                 </div>
 

@@ -13,8 +13,17 @@ import { LoadingState } from '@/components/ui/spinner';
 import { INFERLOOP_MONO_THEME, LANGUAGE_TO_MONACO } from '@/lib/monaco-theme';
 import { notifySuccess } from '@/lib/notify';
 
+// See CodeEditor.tsx for the rationale behind this dynamic chain: we bundle
+// monaco-editor locally (via the explicit ESM entry, since the package root
+// is an AMD bundle bundlers can't parse) and configure @monaco-editor/react's
+// loader to use it, eliminating the runtime CDN fetch from jsdelivr.
 const MonacoDiffEditor = dynamic(
-    () => import('@monaco-editor/react').then((m) => m.DiffEditor),
+    async () => {
+        const monaco = await import('monaco-editor');
+        const reactMonaco = await import('@monaco-editor/react');
+        reactMonaco.loader.config({ monaco });
+        return reactMonaco.DiffEditor;
+    },
     {
         ssr: false,
         loading: () => (
@@ -145,6 +154,11 @@ export function DiffViewer({
                 modified={modified}
                 onMount={handleMount}
                 theme="inferloop-mono"
+                loading={
+                    <div className="flex h-full items-center justify-center">
+                        <LoadingState label="Loading diff" />
+                    </div>
+                }
                 options={{
                     readOnly: true,
                     renderSideBySide,

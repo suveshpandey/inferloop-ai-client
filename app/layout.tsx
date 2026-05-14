@@ -2,8 +2,21 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
+
+// Inline pre-paint script: reads the stored theme from localStorage and
+// applies the `dark` class to <html> before the first render. This avoids
+// a flash of the wrong theme between the document loading and React hydrating
+// the ThemeProvider. Kept tiny on purpose — runs synchronously before paint.
+const THEME_INIT_SCRIPT = `
+(function(){try{
+  var t = localStorage.getItem('inferloop.theme') || 'dark';
+  if (t === 'dark') document.documentElement.classList.add('dark');
+  else document.documentElement.classList.remove('dark');
+}catch(_){document.documentElement.classList.add('dark');}})();
+`;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,15 +48,20 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Toaster />
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <Header />
+            <main className="flex-1">{children}</main>
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

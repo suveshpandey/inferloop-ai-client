@@ -164,6 +164,10 @@ export const api = {
         return request<MeResponse>('/auth/me');
     },
 
+    changePassword(input: { currentPassword: string; newPassword: string }): Promise<void> {
+        return request<void>('/auth/change-password', { method: 'POST', body: input });
+    },
+
     // Blocking review (kept for completeness — UI will use the streaming version)
     review(input: { code: string; language: string }): Promise<ReviewResult> {
         return request<ReviewResult>('/api/review', { method: 'POST', body: input });

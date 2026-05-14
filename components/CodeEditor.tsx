@@ -11,9 +11,24 @@ import type { OnMount, EditorProps } from '@monaco-editor/react';
 import { LoadingState } from '@/components/ui/spinner';
 import { INFERLOOP_MONO_THEME, LANGUAGE_TO_MONACO } from '@/lib/monaco-theme';
 
-// Dynamic import keeps Monaco out of the server bundle entirely.
+// Dynamic import keeps Monaco out of the server bundle and lets us order the
+// setup deterministically: load monaco → load @monaco-editor/react → point
+// its loader at our local monaco instance → return the Editor component. By
+// the time the editor mounts and calls `loader.init()`, the config is set,
+// so it never tries to fetch the AMD loader.js from jsdelivr at runtime.
+//
+// `import('monaco-editor')` hits the package's `"import"` export condition,
+// which resolves to `esm/vs/editor/editor.main.js` — the bundler-friendly
+// ESM build. (The legacy `"require"` condition points at the AMD bundle in
+// `min/vs/...`, which uses syntax like `vs/nls.messages-loader!` that
+// bundlers cannot parse — don't reach for `require` here.)
 const MonacoEditor = dynamic(
-    () => import('@monaco-editor/react').then((m) => m.Editor),
+    async () => {
+        const monaco = await import('monaco-editor');
+        const reactMonaco = await import('@monaco-editor/react');
+        reactMonaco.loader.config({ monaco });
+        return reactMonaco.Editor;
+    },
     {
         ssr: false,
         loading: () => (
@@ -93,6 +108,15 @@ export function CodeEditor({
             onChange={(v) => onChange(v ?? '')}
             onMount={handleMount}
             theme="inferloop-mono"
+            // Replaces Monaco's default "Loading..." text shown while the
+            // editor's runtime initializes (after the JS chunk lands but
+            // before Monaco itself is ready). The dynamic() loading state
+            // above covers the earlier "JS chunk downloading" phase.
+            loading={
+                <div className="flex h-full items-center justify-center">
+                    <LoadingState label="Loading editor" />
+                </div>
+            }
             options={{
                 ...VS_CODE_DEFAULT_OPTIONS,
                 readOnly,

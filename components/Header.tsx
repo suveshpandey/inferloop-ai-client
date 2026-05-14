@@ -1,18 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { UserMenu } from '@/components/UserMenu';
 
 export function Header() {
     const auth = useAuth();
-    const router = useRouter();
-
-    const handleLogout = async () => {
-        await auth.logout();
-        router.replace('/login');
-    };
 
     return (
         <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-md">
@@ -25,7 +20,7 @@ export function Header() {
                     <span className="text-muted-foreground transition-colors group-hover:text-foreground">.ai</span>
                 </Link>
 
-                <nav className="flex items-center gap-2">
+                <nav className="flex items-center gap-1.5">
                     {auth.status === 'loading' && (
                         <div className="h-7 w-28 rounded-md bg-muted animate-pulse" />
                     )}
@@ -38,17 +33,14 @@ export function Header() {
                             <Link href="/signup" className={`${buttonVariants()} font-mono text-[15px] h-9 px-3.5`}>
                                 Sign up
                             </Link>
+                            <ThemeToggle />
                         </>
                     )}
 
                     {auth.status === 'authenticated' && (
                         <>
-                            <span className="hidden font-mono text-sm text-muted-foreground sm:inline">
-                                {auth.user.email}
-                            </span>
-                            <Button variant="outline" onClick={handleLogout} className="font-mono text-[15px] h-9 px-3.5">
-                                Log out
-                            </Button>
+                            <ThemeToggle />
+                            <UserMenu />
                         </>
                     )}
                 </nav>
