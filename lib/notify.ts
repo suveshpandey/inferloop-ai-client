@@ -11,6 +11,8 @@ type NotifyOpts = {
     duration?: number;
     /** Optional secondary line under the main message. */
     description?: string;
+    /** Optional clickable action button on the right side of the toast. */
+    action?: { label: string; onClick: () => void };
 };
 
 /**
@@ -30,6 +32,7 @@ export function notifySuccess(message: string, opts: NotifyOpts = {}): void {
     toast.success(message, {
         description: opts.description,
         duration:    opts.duration ?? 3500,
+        action:      opts.action,
     });
 }
 

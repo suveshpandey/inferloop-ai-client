@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { reviewStream } from '@/lib/api';
-import { notifyError } from '@/lib/notify';
+import { notifyError, notifySuccess } from '@/lib/notify';
 import { ReviewResults } from '@/components/ReviewResults';
 import { CodeEditor } from '@/components/CodeEditor';
 import { LoadingState } from '@/components/ui/spinner';
@@ -97,6 +99,7 @@ const TERMINATION_LABEL: Record<TerminationReason, string> = {
 export default function ReviewPage() {
     const auth = useAuth();
     const router = useRouter();
+    const { refreshRecents } = useSidebar();
 
     const [code, setCode] = useState('');
     const [language, setLanguage] = useState<string>('typescript');
@@ -108,6 +111,10 @@ export default function ReviewPage() {
     const [activeStage, setActiveStage] = useState<Stage | null>(null);
     const [iterations, setIterations] = useState<IterationData[]>([]);
     const [loopResult, setLoopResult] = useState<LoopResult | null>(null);
+    // Run ID for the most recent completed run. Backs the toast action + the
+    // "View saved →" link in the summary banner so the user has a clear
+    // affordance to deep-link to /history/[id].
+    const [savedRunId, setSavedRunId] = useState<string | null>(null);
 
     // Submit-time snapshot — anchors diff baselines & Discard reverts.
     const [originalCode, setOriginalCode] = useState('');
@@ -141,6 +148,7 @@ export default function ReviewPage() {
         setActiveStage(null);
         setIterations([]);
         setLoopResult(null);
+        setSavedRunId(null);
         setOriginalCode(code);
         setOriginalLanguage(language);
 
@@ -226,6 +234,22 @@ export default function ReviewPage() {
                                 setActiveIteration(null);
                                 setActiveStage(null);
                                 setRunState('done');
+                                // Server persisted the run before sending `done`.
+                                // Bump the sidebar to refetch its Recents list,
+                                // capture the new runId for the View link, and
+                                // toast a success with a deep-link action.
+                                refreshRecents();
+                                if (ev.runId) {
+                                    const newRunId = ev.runId;
+                                    setSavedRunId(newRunId);
+                                    notifySuccess('Review saved to history', {
+                                        description: 'Open the saved snapshot any time from the sidebar.',
+                                        action: {
+                                            label: 'View',
+                                            onClick: () => router.push(`/history/${newRunId}`),
+                                        },
+                                    });
+                                }
                                 break;
 
                             case 'error':
@@ -239,6 +263,10 @@ export default function ReviewPage() {
                 },
             );
             setRunState((s) => (s === 'running' ? 'done' : s));
+            // Belt-and-braces sidebar refresh — the `done` case above already
+            // calls refreshRecents(), but if the event is dropped (network
+            // glitch, parser miss) this guarantees the new row shows up.
+            refreshRecents();
         } catch (err) {
             if (controller.signal.aborted) {
                 setRunState('idle');
@@ -397,6 +425,22 @@ export default function ReviewPage() {
                             )}
                         </form>
                     </Card>
+
+                    {/* Saved-run affordance — visible once the server has
+                        persisted the run and returned its id. */}
+                    {savedRunId && runState === 'done' && (
+                        <div className="flex items-center justify-between rounded-md border border-border/70 bg-card/40 px-3 py-2">
+                            <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                                Saved to history
+                            </p>
+                            <Link
+                                href={`/history/${savedRunId}`}
+                                className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                View saved →
+                            </Link>
+                        </div>
+                    )}
 
                     {/* Results — iteration accordions */}
                     {hasResults && (

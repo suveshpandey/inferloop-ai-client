@@ -140,8 +140,51 @@ export type StreamEvent =
     | { type: 'stage_complete';     iteration: number; stage: 'evaluator'; result: EvaluatorOutput }
     | { type: 'iteration_complete'; iteration: number; result: IterationResult }
     | { type: 'loop_complete';      result: LoopResult }
-    | { type: 'done';               result: LoopResult }
+    | { type: 'done';               result: LoopResult; runId: string | null }
     | { type: 'error';              error: string };
+
+// ─────────────────────────── Run history shapes ───────────────────────────
+//
+// `RunSummary` is the lightweight projection rendered in the sidebar's
+// Recents list. `RunDetail` is the full payload backing the historic detail
+// view — every iteration's four agent JSON blobs in order.
+
+export type RunSummary = {
+    id:                string;
+    title:             string;
+    language:          string;
+    finalScore:        number | null;
+    iterationsRun:     number;
+    terminationReason: TerminationReason;
+    createdAt:         string;  // ISO timestamp
+};
+
+export type StoredIteration = {
+    id:              string;
+    iterationIndex:  number;
+    inputCode:       string;
+    analyzerOutput:  AnalyzerOutput;
+    criticOutput:    CriticOutput;
+    improverOutput:  ImproverOutput;
+    evaluatorOutput: EvaluatorOutput;
+    overallScore:    number;
+    createdAt:       string;
+};
+
+export type RunDetail = {
+    id:                string;
+    title:             string;
+    language:          string;
+    code:              string;
+    finalCode:         string;
+    maxIterations:     number;
+    iterationsRun:     number;
+    terminationReason: TerminationReason;
+    finalScore:        number | null;
+    createdAt:         string;
+    completedAt:       string;
+    iterations:        StoredIteration[];
+};
 
 // ───────────────────────── API error envelope ──────────────────────────────
 

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -18,9 +19,14 @@ const THEME_INIT_SCRIPT = `
 }catch(_){document.documentElement.classList.add('dark');}})();
 `;
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// IBM Plex Sans is the body font — humanist sans with an engineering
+// character that pairs naturally with Geist Mono. Needs explicit weights
+// declared (it's not a variable font on Google's CDN). 400 covers body,
+// 500 covers medium emphasis, 600 covers headings/buttons.
+const plexSans = IBM_Plex_Sans({
+  variable: "--font-sans",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 const geistMono = Geist_Mono({
@@ -48,7 +54,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${plexSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -57,9 +63,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Toaster />
+            <SidebarProvider>
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Toaster />
+            </SidebarProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

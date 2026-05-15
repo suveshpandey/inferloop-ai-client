@@ -63,7 +63,6 @@ export function UserMenu() {
                     role="menu"
                     className="animate-fade-up absolute right-0 mt-2 w-72 origin-top-right overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl"
                 >
-                    {/* Identity card */}
                     <div className="flex items-center gap-3 border-b border-border bg-card/40 px-4 py-3.5">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background font-mono text-sm font-semibold uppercase tracking-wider">
                             {initials}
@@ -76,7 +75,6 @@ export function UserMenu() {
                         </div>
                     </div>
 
-                    {/* Actions */}
                     <div className="p-1.5">
                         <Link
                             href="/profile"

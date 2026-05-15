@@ -6,10 +6,18 @@
 // app's palette, with desaturated pastel accents so syntax is still
 // distinguishable without shouting color.
 
+import { useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { OnMount, EditorProps } from '@monaco-editor/react';
 import { LoadingState } from '@/components/ui/spinner';
-import { INFERLOOP_MONO_THEME, LANGUAGE_TO_MONACO } from '@/lib/monaco-theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import {
+    INFERLOOP_MONO_THEME,
+    INFERLOOP_MONO_THEME_LIGHT,
+    LANGUAGE_TO_MONACO,
+    MONACO_DARK_THEME,
+    MONACO_LIGHT_THEME,
+} from '@/lib/monaco-theme';
 
 // Dynamic import keeps Monaco out of the server bundle and lets us order the
 // setup deterministically: load monaco → load @monaco-editor/react → point
@@ -58,16 +66,27 @@ export function CodeEditor({
     placeholder,
 }: Props) {
     const monacoLang = LANGUAGE_TO_MONACO[language] ?? 'plaintext';
+    const { theme } = useTheme();
+    const activeTheme = theme === 'light' ? MONACO_LIGHT_THEME : MONACO_DARK_THEME;
+
+    // Hold a ref to Monaco's namespace from onMount so we can flip the theme
+    // when the app theme changes without remounting the editor.
+    const monacoRef = useRef<Parameters<OnMount>[1] | null>(null);
+
+    useEffect(() => {
+        monacoRef.current?.editor.setTheme(activeTheme);
+    }, [activeTheme]);
 
     // Monaco only applies onMount once per editor instance, so there's no
     // perf cost to defining this here.
     const handleMount: OnMount = (editor, monaco) => {
-        // Define + apply our custom theme. `defineTheme` registers it in
-        // Monaco's theme registry; `setTheme` is global so it persists across
-        // editor instances. Calling both on every mount makes the result
-        // immune to HMR replays.
-        monaco.editor.defineTheme('inferloop-mono', INFERLOOP_MONO_THEME);
-        monaco.editor.setTheme('inferloop-mono');
+        monacoRef.current = monaco;
+        // Register both themes once on mount. `setTheme` is global so it
+        // persists across editor instances; we call it explicitly so HMR
+        // replays don't leave us on a stale theme.
+        monaco.editor.defineTheme(MONACO_DARK_THEME,  INFERLOOP_MONO_THEME);
+        monaco.editor.defineTheme(MONACO_LIGHT_THEME, INFERLOOP_MONO_THEME_LIGHT);
+        monaco.editor.setTheme(activeTheme);
 
         // Monaco has no native placeholder. We attach a content widget that
         // floats over (1, 1) and removes itself the first time the buffer
@@ -76,7 +95,9 @@ export function CodeEditor({
         if (placeholder && !editor.getValue()) {
             const node = document.createElement('div');
             node.textContent      = placeholder;
-            node.style.color      = '#5a5a5a';
+            // Pick a muted color matching the active theme. Pulled from CSS
+            // so the placeholder follows light/dark mode like everything else.
+            node.style.color      = theme === 'light' ? '#a1a1aa' : '#5a5a5a';
             node.style.fontStyle  = 'italic';
             node.style.pointerEvents = 'none';
             node.style.whiteSpace = 'pre';
@@ -107,7 +128,7 @@ export function CodeEditor({
             value={value}
             onChange={(v) => onChange(v ?? '')}
             onMount={handleMount}
-            theme="inferloop-mono"
+            theme={activeTheme}
             // Replaces Monaco's default "Loading..." text shown while the
             // editor's runtime initializes (after the JS chunk lands but
             // before Monaco itself is ready). The dynamic() loading state

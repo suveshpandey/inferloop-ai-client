@@ -1,10 +1,17 @@
-// Shared Monaco theme used by both the input Editor (CodeEditor) and the
+// Shared Monaco themes used by both the input Editor (CodeEditor) and the
 // review's DiffEditor (DiffViewer). Lives here so both components register
-// the same theme and the visual stays consistent edge-to-edge.
+// the same themes and the visual stays consistent edge-to-edge.
 //
-// Note: we don't type this against `editor.IStandaloneThemeData` because
-// `monaco-editor` isn't a direct dependency (only `@monaco-editor/react`
-// is). The shape is structurally validated where `defineTheme` is called.
+// Two themes:
+//   • inferloop-mono       — dark variant, matches the app's dark mode.
+//   • inferloop-mono-light — light variant, matches the app's light mode.
+//
+// Both use the same desaturated accent palette (pastel violet for keywords,
+// soft rose for strings, etc.) — only the surface tokens change between them.
+//
+// Note: we don't type these against `editor.IStandaloneThemeData` because
+// `monaco-editor` isn't statically typed at this layer. The shape is
+// structurally validated where `defineTheme` is called.
 
 export const INFERLOOP_MONO_THEME = {
     base: 'vs-dark',
@@ -82,9 +89,6 @@ export const INFERLOOP_MONO_THEME = {
         'editorBracketHighlight.foreground5':  '#fda4af',
         'editorBracketHighlight.foreground6':  '#a5b4fc',
         'editorBracketHighlight.unexpectedBracket.foreground': '#fda4af',
-        // Diff-specific colors — soft red for removed lines, soft emerald for
-        // added lines. Same desaturated palette as the rest of the theme so
-        // the diff still feels muted rather than alarming.
         'diffEditor.removedTextBackground':     '#fda4af26',
         'diffEditor.insertedTextBackground':    '#a7f3d022',
         'diffEditor.removedLineBackground':     '#fda4af12',
@@ -96,6 +100,103 @@ export const INFERLOOP_MONO_THEME = {
         'diffEditor.diagonalFill':              '#27272a55',
     },
 };
+
+// Light counterpart. Editor surfaces use the app's light-mode `bg-background`
+// (#ffffff) and `bg-card` (also white) so the editor blends in. Syntax token
+// colors are darker, more saturated cousins of the dark theme's pastel
+// palette — same hue family, tuned for high contrast on a white surface.
+export const INFERLOOP_MONO_THEME_LIGHT = {
+    base: 'vs',
+    inherit: true,
+    rules: [
+        { token: '',                       foreground: '18181b' },
+        { token: 'comment',                foreground: '71717a', fontStyle: 'italic' },
+        { token: 'keyword',                foreground: '7c3aed' },
+        { token: 'keyword.control',        foreground: '7c3aed' },
+        { token: 'keyword.operator',       foreground: '3f3f46' },
+        { token: 'string',                 foreground: 'be123c' },
+        { token: 'string.escape',          foreground: 'db2777' },
+        { token: 'number',                 foreground: 'c2410c' },
+        { token: 'regexp',                 foreground: '047857' },
+        { token: 'type',                   foreground: '4f46e5' },
+        { token: 'type.identifier',        foreground: '4f46e5' },
+        { token: 'class',                  foreground: '4f46e5' },
+        { token: 'interface',              foreground: '4f46e5' },
+        { token: 'function',               foreground: '1d4ed8' },
+        { token: 'entity.name.function',   foreground: '1d4ed8' },
+        { token: 'identifier',             foreground: '18181b' },
+        { token: 'identifier.function',    foreground: '1d4ed8' },
+        { token: 'variable',               foreground: '18181b' },
+        { token: 'variable.parameter',     foreground: '92400e' },
+        { token: 'constant',               foreground: 'c2410c' },
+        { token: 'constant.numeric',       foreground: 'c2410c' },
+        { token: 'constant.language',      foreground: 'c2410c' },
+        { token: 'operator',               foreground: '3f3f46' },
+        { token: 'delimiter',              foreground: '52525b' },
+        { token: 'delimiter.bracket',      foreground: '52525b' },
+        { token: 'tag',                    foreground: 'be123c' },
+        { token: 'attribute.name',         foreground: '7c3aed' },
+        { token: 'attribute.value',        foreground: 'be123c' },
+        { token: 'metatag',                foreground: 'be123c' },
+        { token: 'annotation',             foreground: '7c3aed' },
+        { token: 'emphasis',               fontStyle: 'italic' },
+        { token: 'strong',                 fontStyle: 'bold' },
+    ],
+    colors: {
+        'editor.background':                   '#ffffff',
+        'editor.foreground':                   '#18181b',
+        'editorLineNumber.foreground':         '#d4d4d8',
+        'editorLineNumber.activeForeground':   '#52525b',
+        'editorCursor.foreground':             '#18181b',
+        'editor.selectionBackground':          '#0000001a',
+        'editor.inactiveSelectionBackground':  '#0000000a',
+        'editor.lineHighlightBackground':      '#00000005',
+        'editor.lineHighlightBorder':          '#00000000',
+        'editorIndentGuide.background1':       '#e4e4e7',
+        'editorIndentGuide.activeBackground1': '#a1a1aa',
+        'editorWhitespace.foreground':         '#e4e4e7',
+        'editorBracketMatch.background':       '#00000010',
+        'editorBracketMatch.border':           '#00000030',
+        'editor.findMatchBackground':          '#fde68a80',
+        'editor.findMatchHighlightBackground': '#fde68a40',
+        'scrollbarSlider.background':          '#00000015',
+        'scrollbarSlider.hoverBackground':     '#00000025',
+        'scrollbarSlider.activeBackground':    '#00000035',
+        'minimap.background':                  '#ffffff',
+        'minimapSlider.background':            '#00000010',
+        'minimapSlider.hoverBackground':       '#00000020',
+        'editorWidget.background':             '#ffffff',
+        'editorWidget.border':                 '#e4e4e7',
+        'editorGutter.background':             '#ffffff',
+        'editorSuggestWidget.background':      '#ffffff',
+        'editorSuggestWidget.border':          '#e4e4e7',
+        'editorSuggestWidget.foreground':      '#18181b',
+        'editorSuggestWidget.selectedBackground': '#0000000a',
+        'editorHoverWidget.background':        '#ffffff',
+        'editorHoverWidget.border':            '#e4e4e7',
+        'editorBracketHighlight.foreground1':  '#7c3aed',
+        'editorBracketHighlight.foreground2':  '#1d4ed8',
+        'editorBracketHighlight.foreground3':  '#047857',
+        'editorBracketHighlight.foreground4':  '#c2410c',
+        'editorBracketHighlight.foreground5':  '#be123c',
+        'editorBracketHighlight.foreground6':  '#4f46e5',
+        'editorBracketHighlight.unexpectedBracket.foreground': '#be123c',
+        'diffEditor.removedTextBackground':     '#fecaca66',
+        'diffEditor.insertedTextBackground':    '#bbf7d066',
+        'diffEditor.removedLineBackground':     '#fecaca33',
+        'diffEditor.insertedLineBackground':    '#bbf7d033',
+        'diffEditorGutter.removedLineBackground':  '#fecaca55',
+        'diffEditorGutter.insertedLineBackground': '#bbf7d055',
+        'diffEditorOverview.removedForeground':  '#ef444480',
+        'diffEditorOverview.insertedForeground': '#22c55e80',
+        'diffEditor.diagonalFill':              '#e4e4e755',
+    },
+};
+
+// Monaco theme identifiers — exported so editors can call setTheme() with the
+// matching name based on the current app theme.
+export const MONACO_DARK_THEME  = 'inferloop-mono';
+export const MONACO_LIGHT_THEME = 'inferloop-mono-light';
 
 // Internal language → Monaco language ID mapping. Shared between Editor and
 // DiffEditor so a single change updates both surfaces.

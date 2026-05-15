@@ -41,15 +41,8 @@ export default function ProfilePage() {
         <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
             {/* ── Hero ───────────────────────────────────────────────── */}
             <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-                <div className="relative">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-full border border-border bg-card font-mono text-2xl font-semibold uppercase tracking-wider">
-                        {initials}
-                    </div>
-                    {/* Soft ambient ring — purely decorative. */}
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-0 -m-2 rounded-full ring-1 ring-border/50"
-                    />
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-2xl font-semibold uppercase tracking-wider text-accent-foreground">
+                    {initials}
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
@@ -80,23 +73,22 @@ export default function ProfilePage() {
                 <ChangePasswordForm />
             </Section>
 
-            {/* ── Footer / sign out ──────────────────────────────────── */}
-            <div className="mt-16 flex items-center justify-between border-t border-border pt-6">
-                <div>
-                    <p className="text-sm font-medium">Sign out of this session</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                        You&apos;ll need to log in again to access your reviews.
-                    </p>
+            {/* ── Sign out ───────────────────────────────────────────── */}
+            <Section
+                title="Session"
+                description="Sign out of this session. You'll need to log in again to access your reviews."
+            >
+                <div className="flex justify-end">
+                    <Button
+                        variant="outline"
+                        onClick={handleLogout}
+                        className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                        <LogOut className="h-4 w-4" />
+                        Log out
+                    </Button>
                 </div>
-                <Button
-                    variant="outline"
-                    onClick={handleLogout}
-                    className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                >
-                    <LogOut className="h-4 w-4" />
-                    Log out
-                </Button>
-            </div>
+            </Section>
         </div>
     );
 }

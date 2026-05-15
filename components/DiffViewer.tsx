@@ -5,12 +5,19 @@
 // language people see in VS Code, Cursor, and GitHub PRs. Theme + language
 // mapping shared with the input Editor via lib/monaco-theme.ts.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import type { DiffOnMount } from '@monaco-editor/react';
 import { Check, X } from 'lucide-react';
 import { LoadingState } from '@/components/ui/spinner';
-import { INFERLOOP_MONO_THEME, LANGUAGE_TO_MONACO } from '@/lib/monaco-theme';
+import { useTheme } from '@/contexts/ThemeContext';
+import {
+    INFERLOOP_MONO_THEME,
+    INFERLOOP_MONO_THEME_LIGHT,
+    LANGUAGE_TO_MONACO,
+    MONACO_DARK_THEME,
+    MONACO_LIGHT_THEME,
+} from '@/lib/monaco-theme';
 import { notifySuccess } from '@/lib/notify';
 
 // See CodeEditor.tsx for the rationale behind this dynamic chain: we bundle
@@ -58,12 +65,21 @@ export function DiffViewer({
     onDiscard,
 }: Props) {
     const monacoLang = LANGUAGE_TO_MONACO[language] ?? 'plaintext';
+    const { theme } = useTheme();
+    const activeTheme = theme === 'light' ? MONACO_LIGHT_THEME : MONACO_DARK_THEME;
 
     // Inline by default — our column is ~700px wide; a 2-pane side-by-side at
     // ~340px per pane gets cramped fast. User can flip via the toolbar.
     const [renderSideBySide, setRenderSideBySide] = useState(false);
     const [copied, setCopied] = useState(false);
     const [decision, setDecision] = useState<Decision>('pending');
+
+    // Re-apply the theme when the app switches between light/dark without
+    // tearing down the editor.
+    const monacoRef = useRef<Parameters<DiffOnMount>[1] | null>(null);
+    useEffect(() => {
+        monacoRef.current?.editor.setTheme(activeTheme);
+    }, [activeTheme]);
 
     // Reset the decision whenever a new improver result comes in. Otherwise
     // re-running a review would carry the previous Kept/Discarded state into
@@ -82,8 +98,10 @@ export function DiffViewer({
     };
 
     const handleMount: DiffOnMount = (_editor, monaco) => {
-        monaco.editor.defineTheme('inferloop-mono', INFERLOOP_MONO_THEME);
-        monaco.editor.setTheme('inferloop-mono');
+        monacoRef.current = monaco;
+        monaco.editor.defineTheme(MONACO_DARK_THEME,  INFERLOOP_MONO_THEME);
+        monaco.editor.defineTheme(MONACO_LIGHT_THEME, INFERLOOP_MONO_THEME_LIGHT);
+        monaco.editor.setTheme(activeTheme);
     };
 
     const onCopy = async () => {
@@ -153,7 +171,7 @@ export function DiffViewer({
                 original={original}
                 modified={modified}
                 onMount={handleMount}
-                theme="inferloop-mono"
+                theme={activeTheme}
                 loading={
                     <div className="flex h-full items-center justify-center">
                         <LoadingState label="Loading diff" />

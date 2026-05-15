@@ -5,6 +5,8 @@ import type {
     ReviewResult,
     StreamEvent,
     ApiError,
+    RunSummary,
+    RunDetail,
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -171,6 +173,19 @@ export const api = {
     // Blocking review (kept for completeness — UI will use the streaming version)
     review(input: { code: string; language: string }): Promise<ReviewResult> {
         return request<ReviewResult>('/api/review', { method: 'POST', body: input });
+    },
+
+    // History — populated automatically when a streamed review completes.
+    listRuns(): Promise<{ runs: RunSummary[] }> {
+        return request<{ runs: RunSummary[] }>('/api/runs');
+    },
+
+    getRun(id: string): Promise<{ run: RunDetail }> {
+        return request<{ run: RunDetail }>(`/api/runs/${id}`);
+    },
+
+    deleteRun(id: string): Promise<void> {
+        return request<void>(`/api/runs/${id}`, { method: 'DELETE' });
     },
 
     // Streaming review — see reviewStream() below.

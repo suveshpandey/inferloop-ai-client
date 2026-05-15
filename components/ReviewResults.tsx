@@ -12,7 +12,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChevronDown } from 'lucide-react';
 import { DiffViewer } from '@/components/DiffViewer';
-import type { IterationData } from '@/app/review/page';
+import type { IterationData } from '@/app/(app)/review/page';
 import type {
     AnalyzerOutput,
     CriticOutput,
