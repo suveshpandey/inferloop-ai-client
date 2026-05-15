@@ -172,6 +172,16 @@ export function DiffViewer({
                 modified={modified}
                 onMount={handleMount}
                 theme={activeTheme}
+                // Workaround for a known @monaco-editor/react disposal race:
+                // by default the wrapper disposes the original+modified
+                // TextModels on unmount, but the DiffEditorWidget is still
+                // alive at that moment and crashes when its model emits a
+                // dispose event ("TextModel got disposed before
+                // DiffEditorWidget model got reset"). Keeping the models
+                // alive lets Monaco's own lifecycle sequence widget-reset
+                // → model-dispose in the safe order.
+                keepCurrentOriginalModel
+                keepCurrentModifiedModel
                 loading={
                     <div className="flex h-full items-center justify-center">
                         <LoadingState label="Loading diff" />
