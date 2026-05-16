@@ -4,7 +4,6 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
-import { Header } from "@/components/Header";
 import { Toaster } from "@/components/ui/sonner";
 
 // Inline pre-paint script: reads the stored theme from localStorage and
@@ -64,7 +63,6 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <SidebarProvider>
-              <Header />
               <main className="flex-1">{children}</main>
               <Toaster />
             </SidebarProvider>

@@ -12,7 +12,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type MouseEvent } from 'react';
-import { Plus, X, UserRound, Trash2 } from 'lucide-react';
+import { Plus, X, UserRound, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { initialsFromIdentity } from '@/lib/user';
@@ -20,13 +20,11 @@ import { api } from '@/lib/api';
 import { notifyError } from '@/lib/notify';
 import type { RunSummary } from '@/lib/types';
 
-const HEADER_OFFSET = '3.5rem'; // matches the h-14 header
-
 export function AppSidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const auth = useAuth();
-    const { open, setOpen, recentsVersion } = useSidebar();
+    const { open, setOpen, recentsVersion, collapsed, toggleCollapsed } = useSidebar();
     const [recents, setRecents] = useState<RunSummary[] | null>(null);
     // Track per-row delete state so the row dims while its request is in
     // flight. A simple set keeps it cheap — we only ever delete a handful.
@@ -108,34 +106,52 @@ export function AppSidebar() {
             )}
 
             <aside
-                style={{ top: HEADER_OFFSET, height: `calc(100dvh - ${HEADER_OFFSET})` }}
                 className={[
-                    'flex w-60 shrink-0 flex-col border-r border-border bg-background',
-                    'lg:sticky',
-                    'fixed left-0 z-50 transition-transform duration-200 lg:translate-x-0',
+                    'flex h-dvh shrink-0 flex-col border-r border-border bg-background',
+                    'transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width]',
+                    collapsed ? 'lg:w-14' : 'lg:w-60',
+                    'w-60',  // mobile drawer always full width
+                    'lg:sticky lg:top-0',
+                    'fixed left-0 top-0 z-50 lg:translate-x-0',
                     open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
                 ].join(' ')}
                 aria-label="Primary navigation"
             >
-                {/* Mobile-only close row */}
-                <div className="flex h-10 items-center justify-end px-3 lg:hidden">
+                {/* Top row — matches the top bar height (h-14) and holds the
+                    desktop expand/collapse toggle. On mobile this row holds
+                    the close button instead (no collapse on small screens). */}
+                <div className="flex h-14 items-center justify-between px-3">
+                    <button
+                        type="button"
+                        onClick={toggleCollapsed}
+                        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                        className="hidden h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground lg:flex"
+                    >
+                        {collapsed ? (
+                            <PanelLeftOpen className="h-4 w-4" />
+                        ) : (
+                            <PanelLeftClose className="h-4 w-4" />
+                        )}
+                    </button>
                     <button
                         type="button"
                         onClick={() => setOpen(false)}
                         aria-label="Close navigation"
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        className="ml-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground lg:hidden"
                     >
                         <X className="h-4 w-4" />
                     </button>
                 </div>
 
                 {/* New review */}
-                <div className="px-3 pt-6 pb-3">
+                <div className="px-3 pt-2 pb-3">
                     <NavRow
                         href="/review"
                         icon={<Plus className="h-3.5 w-3.5" />}
                         label="New review"
                         active={pathname === '/review'}
+                        collapsed={collapsed}
                     />
                 </div>
 
@@ -144,8 +160,16 @@ export function AppSidebar() {
                     own right border. */}
                 <div className="mx-3 border-t border-border/50" />
 
-                {/* Recents */}
-                <div className="flex min-h-0 flex-1 flex-col px-3 pt-3 pb-3">
+                {/* Recents — fades out when the desktop rail collapses. */}
+                <div
+                    className={[
+                        'flex min-h-0 flex-1 flex-col overflow-hidden px-3 pt-3 pb-3',
+                        'transition-opacity duration-200',
+                        collapsed
+                            ? 'lg:pointer-events-none lg:opacity-0'
+                            : 'opacity-100',
+                    ].join(' ')}
+                >
                     <p className="mb-2 px-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                         Recents
                     </p>
@@ -174,6 +198,7 @@ export function AppSidebar() {
                         email={auth.user.email}
                         username={auth.user.username}
                         active={pathname === '/profile'}
+                        collapsed={collapsed}
                     />
                 )}
             </aside>
@@ -188,24 +213,36 @@ function NavRow({
     icon,
     label,
     active,
+    collapsed,
 }: {
     href: string;
     icon: React.ReactNode;
     label: string;
     active: boolean;
+    collapsed: boolean;
 }) {
     return (
         <Link
             href={href}
+            title={collapsed ? label : undefined}
+            aria-label={label}
             className={[
-                'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+                'flex items-center gap-2 rounded-md py-1.5 text-sm transition-colors',
+                collapsed ? 'lg:justify-center lg:px-0 px-2' : 'px-2',
                 active
                     ? 'bg-accent/60 text-foreground'
                     : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
             ].join(' ')}
         >
             <span className={active ? 'text-foreground' : 'text-muted-foreground'}>{icon}</span>
-            <span className="truncate">{label}</span>
+            <span
+                className={[
+                    'truncate transition-opacity duration-200',
+                    collapsed ? 'lg:pointer-events-none lg:hidden lg:opacity-0' : 'opacity-100',
+                ].join(' ')}
+            >
+                {label}
+            </span>
         </Link>
     );
 }
@@ -279,10 +316,12 @@ function ProfileStrip({
     email,
     username,
     active,
+    collapsed,
 }: {
     email: string;
     username: string | null;
     active: boolean;
+    collapsed: boolean;
 }) {
     const displayName = username?.trim() || email.split('@')[0];
     const initials = initialsFromIdentity(username, email);
@@ -290,19 +329,31 @@ function ProfileStrip({
         <Link
             href="/profile"
             aria-label="Profile"
+            title={collapsed ? displayName : undefined}
             className={[
-                'flex items-center gap-2.5 border-t border-border px-3 py-3 transition-colors',
+                'flex items-center gap-2.5 border-t border-border py-3 transition-colors',
+                collapsed ? 'lg:justify-center lg:px-0 px-3' : 'px-3',
                 active ? 'bg-accent/40' : 'hover:bg-accent/30',
             ].join(' ')}
         >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-card font-mono text-[11px] font-semibold uppercase tracking-wider">
                 {initials}
             </span>
-            <div className="min-w-0 flex-1">
+            <div
+                className={[
+                    'min-w-0 flex-1 transition-opacity duration-200',
+                    collapsed ? 'lg:pointer-events-none lg:hidden lg:opacity-0' : 'opacity-100',
+                ].join(' ')}
+            >
                 <p className="truncate text-sm font-medium leading-tight">{displayName}</p>
                 <p className="truncate font-mono text-[11px] text-muted-foreground">{email}</p>
             </div>
-            <UserRound className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <UserRound
+                className={[
+                    'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-opacity duration-200',
+                    collapsed ? 'lg:hidden lg:opacity-0' : 'opacity-100',
+                ].join(' ')}
+            />
         </Link>
     );
 }

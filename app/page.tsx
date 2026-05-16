@@ -10,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { HeroVisual } from '@/components/HeroVisual';
 import { Meteors } from '@/components/Meteors';
 import { LoadingState } from '@/components/ui/spinner';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const AGENTS = [
     { name: 'Analyzer',  desc: 'Surfaces bugs, smells, security and perf risk in your source.', glyph: '01' },
@@ -41,8 +42,35 @@ export default function Home() {
             {/* Meteors — diagonal streaks travelling top-left → bottom-right */}
             <Meteors />
 
+            {/* Inline page header — brand + auth CTAs. Lives inside the page
+                (not a global layout header) so it scrolls with the hero. */}
+            <header className="relative z-10 mx-auto flex max-w-6xl items-center justify-between px-6 pt-6">
+                <Link
+                    href="/"
+                    className="group flex items-baseline gap-0 font-mono text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
+                >
+                    <span>InferLoop</span>
+                    <span className="text-muted-foreground transition-colors group-hover:text-foreground">.ai</span>
+                </Link>
+                <nav className="flex items-center gap-1.5">
+                    <Link
+                        href="/login"
+                        className={`${buttonVariants({ variant: 'ghost' })} font-mono text-[15px] h-9 px-3.5`}
+                    >
+                        Log in
+                    </Link>
+                    <Link
+                        href="/signup"
+                        className={`${buttonVariants()} font-mono text-[15px] h-9 px-3.5`}
+                    >
+                        Sign up
+                    </Link>
+                    <ThemeToggle />
+                </nav>
+            </header>
+
             {/* HERO — two-column on lg+ */}
-            <section className="relative mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 pt-24 pb-16 sm:pt-32 sm:pb-24 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16">
+            <section className="relative mx-auto grid max-w-6xl grid-cols-1 gap-12 px-6 pt-16 pb-16 sm:pt-24 sm:pb-24 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:gap-16">
                 <div>
                     {/* Tag pill */}
                     <Badge
