@@ -88,7 +88,7 @@ export function HeroVisual() {
                                     <span className="text-muted-foreground">;</span>
                                 </span>
                                 <Badge
-                                    className="ml-3 h-auto gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[10px] font-normal uppercase tracking-widest text-rose-300 animate-pulse-soft"
+                                    className="ml-3 h-auto gap-1 rounded-md border border-rose-500/40 bg-rose-500/10 px-1.5 py-0.5 font-mono text-[10px] font-normal uppercase tracking-widest text-rose-700 dark:text-rose-300 animate-pulse-soft"
                                 >
                                     <span className="h-1 w-1 rounded-full bg-rose-400" />
                                     critical · bug

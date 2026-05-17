@@ -99,7 +99,7 @@ const TERMINATION_LABEL: Record<TerminationReason, string> = {
 export default function ReviewPage() {
     const auth = useAuth();
     const router = useRouter();
-    const { refreshRecents } = useSidebar();
+    const { refreshRecents, newReviewVersion } = useSidebar();
 
     const [code, setCode] = useState('');
     const [language, setLanguage] = useState<string>('typescript');
@@ -129,6 +129,29 @@ export default function ReviewPage() {
     useEffect(() => {
         return () => abortRef.current?.abort();
     }, []);
+
+    // "New review" button in the sidebar bumps newReviewVersion. When that
+    // happens (and we're already mounted), wipe all in-memory state so the
+    // user lands on a clean editor without needing to refresh the page.
+    // Skipping the very first run keeps the initial mount untouched.
+    const didMountRef = useRef(false);
+    useEffect(() => {
+        if (!didMountRef.current) {
+            didMountRef.current = true;
+            return;
+        }
+        abortRef.current?.abort();
+        abortRef.current = null;
+        setCode('');
+        setOriginalCode('');
+        setOriginalLanguage(language);
+        setIterations([]);
+        setLoopResult(null);
+        setSavedRunId(null);
+        setActiveIteration(null);
+        setActiveStage(null);
+        setRunState('idle');
+    }, [newReviewVersion]);  // eslint-disable-line react-hooks/exhaustive-deps
 
     if (auth.status !== 'authenticated') {
         return (
@@ -467,8 +490,8 @@ export default function ReviewPage() {
                             <p className={[
                                 'font-mono text-[10px] uppercase tracking-widest',
                                 runState === 'running' && 'text-foreground animate-pulse-soft',
-                                runState === 'done'    && 'text-emerald-300',
-                                runState === 'error'   && 'text-rose-300',
+                                runState === 'done'    && 'text-emerald-700 dark:text-emerald-300',
+                                runState === 'error'   && 'text-rose-700 dark:text-rose-300',
                                 runState === 'idle'    && 'text-muted-foreground/60',
                             ].filter(Boolean).join(' ')}>
                                 {runState === 'idle'    && 'Ready'}
@@ -500,7 +523,7 @@ export default function ReviewPage() {
                                         className={[
                                             'flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
                                             status === 'running'  && 'border-foreground/40 bg-background/60',
-                                            status === 'complete' && 'border-emerald-500/30 bg-emerald-500/[0.04]',
+                                            status === 'complete' && 'border-emerald-500/40 bg-emerald-500/[0.06]',
                                             status === 'pending'  && 'border-border/60 bg-background/40',
                                         ].filter(Boolean).join(' ')}
                                     >
@@ -527,7 +550,7 @@ export default function ReviewPage() {
                                             className={[
                                                 'ml-auto font-mono text-[10px] uppercase tracking-widest transition-colors',
                                                 status === 'running'  && 'text-foreground animate-pulse-soft',
-                                                status === 'complete' && 'text-emerald-300',
+                                                status === 'complete' && 'text-emerald-700 dark:text-emerald-300',
                                                 status === 'pending'  && 'text-muted-foreground/60',
                                             ].filter(Boolean).join(' ')}
                                         >

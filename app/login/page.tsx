@@ -38,7 +38,7 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="grid min-h-[calc(100vh-4rem)] grid-cols-1 lg:grid-cols-2">
+        <div className="grid min-h-dvh grid-cols-1 lg:grid-cols-2">
             <AuthAside mode="login" />
 
             <div className="flex flex-col justify-center px-6 py-16">

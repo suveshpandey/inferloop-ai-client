@@ -23,6 +23,11 @@ type SidebarContextValue = {
     inApp: boolean;
     recentsVersion: number;
     refreshRecents: () => void;
+    /** Bumped when the user clicks "New review" while already on /review.
+     *  The review page listens to this so it can wipe its in-memory state
+     *  (code, iterations, loop result) without a full page reload. */
+    newReviewVersion: number;
+    requestNewReview: () => void;
 };
 
 const COLLAPSE_KEY = 'inferloop.sidebar.collapsed';
@@ -33,6 +38,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     const [open, setOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
     const [recentsVersion, setRecentsVersion] = useState(0);
+    const [newReviewVersion, setNewReviewVersion] = useState(0);
 
     // Hydrate collapsed state from localStorage after mount, so SSR markup
     // matches the initial client render (always expanded), then we flip.
@@ -52,6 +58,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     const toggle = useCallback(() => setOpen((o) => !o), []);
     const toggleCollapsed = useCallback(() => setCollapsed((c) => !c), []);
     const refreshRecents = useCallback(() => setRecentsVersion((v) => v + 1), []);
+    const requestNewReview = useCallback(() => setNewReviewVersion((v) => v + 1), []);
 
     return (
         <SidebarContext.Provider
@@ -65,6 +72,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
                 inApp: true,
                 recentsVersion,
                 refreshRecents,
+                newReviewVersion,
+                requestNewReview,
             }}
         >
             {children}
@@ -87,6 +96,8 @@ export function useSidebar(): SidebarContextValue {
             inApp: false,
             recentsVersion: 0,
             refreshRecents: () => {},
+            newReviewVersion: 0,
+            requestNewReview: () => {},
         }
     );
 }

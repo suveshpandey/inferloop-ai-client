@@ -78,9 +78,12 @@ const TERMINATION_TEXT: Record<TerminationReason, { label: string; tone: 'good' 
 
 function LoopSummaryBanner({ result }: { result: LoopResult }) {
     const { label, tone } = TERMINATION_TEXT[result.terminationReason];
+    // Tone palettes pick different shades for light vs dark so the text stays
+    // legible against either background. dark: lighter on dark; light: darker
+    // on light tint.
     const toneClass =
-        tone === 'good'    ? 'border-emerald-500/30 bg-emerald-500/[0.04] text-emerald-200' :
-        tone === 'warn'    ? 'border-rose-500/30    bg-rose-500/[0.04]    text-rose-200'    :
+        tone === 'good'    ? 'border-emerald-500/40 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-200' :
+        tone === 'warn'    ? 'border-rose-500/40    bg-rose-500/[0.06]    text-rose-700    dark:text-rose-200'    :
                              'border-border/60      bg-background/40      text-muted-foreground';
     return (
         <div className={`animate-fade-up flex items-center gap-3 rounded-md border px-4 py-3 ${toneClass}`}>
@@ -465,11 +468,14 @@ function ReviewedFindingCard({ reviewed }: { reviewed: ReviewedFinding }) {
 
 // ────────────────────────────── Pills / tags ───────────────────────────────
 
+// Each pill gets a darker text shade for light mode and a lighter one for
+// dark mode so it stays legible on either surface. Border alpha bumped from
+// /30 to /40 so the outline still reads against a light background.
 const SEVERITY_STYLES: Record<Severity, string> = {
-    low:      'border-border/60 bg-background/60 text-muted-foreground',
-    medium:   'border-amber-500/30 bg-amber-500/10 text-amber-200',
-    high:     'border-orange-500/30 bg-orange-500/10 text-orange-200',
-    critical: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+    low:      'border-border/60     bg-background/60   text-muted-foreground',
+    medium:   'border-amber-500/40  bg-amber-500/10    text-amber-700  dark:text-amber-200',
+    high:     'border-orange-500/40 bg-orange-500/10   text-orange-700 dark:text-orange-200',
+    critical: 'border-rose-500/40   bg-rose-500/10     text-rose-700   dark:text-rose-200',
 };
 
 function SeverityPill({ severity }: { severity: Severity }) {
@@ -492,9 +498,9 @@ function CategoryTag({ category }: { category: Category }) {
 }
 
 const DECISION_STYLES: Record<CriticDecision, string> = {
-    keep:   'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-    drop:   'border-border/60 bg-background/60 text-muted-foreground',
-    modify: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+    keep:   'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
+    drop:   'border-border/60      bg-background/60  text-muted-foreground',
+    modify: 'border-amber-500/40   bg-amber-500/10   text-amber-700   dark:text-amber-200',
 };
 
 function DecisionPill({ decision }: { decision: CriticDecision }) {
@@ -509,9 +515,9 @@ function DecisionPill({ decision }: { decision: CriticDecision }) {
 }
 
 const VERDICT_STYLES: Record<Verdict, string> = {
-    improved:  'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-    unchanged: 'border-border/60 bg-background/60 text-muted-foreground',
-    regressed: 'border-rose-500/30 bg-rose-500/10 text-rose-200',
+    improved:  'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
+    unchanged: 'border-border/60      bg-background/60  text-muted-foreground',
+    regressed: 'border-rose-500/40    bg-rose-500/10    text-rose-700    dark:text-rose-200',
 };
 
 function VerdictPill({ verdict }: { verdict: Verdict }) {

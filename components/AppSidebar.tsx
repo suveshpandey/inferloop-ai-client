@@ -24,7 +24,7 @@ export function AppSidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const auth = useAuth();
-    const { open, setOpen, recentsVersion, collapsed, toggleCollapsed } = useSidebar();
+    const { open, setOpen, recentsVersion, collapsed, toggleCollapsed, requestNewReview } = useSidebar();
     const [recents, setRecents] = useState<RunSummary[] | null>(null);
     // Track per-row delete state so the row dims while its request is in
     // flight. A simple set keeps it cheap — we only ever delete a handful.
@@ -144,7 +144,10 @@ export function AppSidebar() {
                     </button>
                 </div>
 
-                {/* New review */}
+                {/* New review — if we're already on /review, intercept the
+                    click and bump newReviewVersion instead of doing a no-op
+                    navigation. The page listens to that signal and resets
+                    its in-memory state for a clean editor. */}
                 <div className="px-3 pt-2 pb-3">
                     <NavRow
                         href="/review"
@@ -152,6 +155,12 @@ export function AppSidebar() {
                         label="New review"
                         active={pathname === '/review'}
                         collapsed={collapsed}
+                        onClick={(e) => {
+                            if (pathname === '/review') {
+                                e.preventDefault();
+                                requestNewReview();
+                            }
+                        }}
                     />
                 </div>
 
@@ -174,7 +183,7 @@ export function AppSidebar() {
                         Recents
                     </p>
                     {recents && recents.length > 0 ? (
-                        <ul className="-mr-1 flex-1 space-y-0.5 overflow-y-auto pr-1">
+                        <ul className="themed-scrollbar -mr-1 flex-1 space-y-0.5 overflow-y-auto pr-1">
                             {recents.map((r) => (
                                 <li key={r.id}>
                                     <RecentRow
@@ -214,18 +223,21 @@ function NavRow({
     label,
     active,
     collapsed,
+    onClick,
 }: {
     href: string;
     icon: React.ReactNode;
     label: string;
     active: boolean;
     collapsed: boolean;
+    onClick?: (e: MouseEvent<HTMLAnchorElement>) => void;
 }) {
     return (
         <Link
             href={href}
             title={collapsed ? label : undefined}
             aria-label={label}
+            onClick={onClick}
             className={[
                 'flex items-center gap-2 rounded-md py-1.5 text-sm transition-colors',
                 collapsed ? 'lg:justify-center lg:px-0 px-2' : 'px-2',
