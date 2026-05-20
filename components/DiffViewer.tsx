@@ -18,6 +18,7 @@ import {
     MONACO_DARK_THEME,
     MONACO_LIGHT_THEME,
 } from '@/lib/monaco-theme';
+import { setupMonacoWorkers } from '@/lib/monaco-workers';
 import { notifySuccess } from '@/lib/notify';
 
 // See CodeEditor.tsx for the rationale behind this dynamic chain: we bundle
@@ -26,6 +27,7 @@ import { notifySuccess } from '@/lib/notify';
 // loader to use it, eliminating the runtime CDN fetch from jsdelivr.
 const MonacoDiffEditor = dynamic(
     async () => {
+        setupMonacoWorkers();
         const monaco = await import('monaco-editor');
         const reactMonaco = await import('@monaco-editor/react');
         reactMonaco.loader.config({ monaco });
@@ -43,6 +45,7 @@ const MonacoDiffEditor = dynamic(
 
 const MonacoEditor = dynamic(
     async () => {
+        setupMonacoWorkers();
         const monaco = await import('monaco-editor');
         const reactMonaco = await import('@monaco-editor/react');
         reactMonaco.loader.config({ monaco });

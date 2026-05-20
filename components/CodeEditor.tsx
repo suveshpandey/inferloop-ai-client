@@ -18,6 +18,7 @@ import {
     MONACO_DARK_THEME,
     MONACO_LIGHT_THEME,
 } from '@/lib/monaco-theme';
+import { setupMonacoWorkers } from '@/lib/monaco-workers';
 
 // Dynamic import keeps Monaco out of the server bundle and lets us order the
 // setup deterministically: load monaco → load @monaco-editor/react → point
@@ -32,6 +33,10 @@ import {
 // bundlers cannot parse — don't reach for `require` here.)
 const MonacoEditor = dynamic(
     async () => {
+        // Wire workers BEFORE monaco is imported so the first language
+        // service request (which happens during editor construction) sees a
+        // real getWorker function instead of the "main-thread fallback".
+        setupMonacoWorkers();
         const monaco = await import('monaco-editor');
         const reactMonaco = await import('@monaco-editor/react');
         reactMonaco.loader.config({ monaco });
