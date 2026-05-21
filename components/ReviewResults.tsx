@@ -426,6 +426,10 @@ function FindingCard({ finding }: { finding: Finding }) {
             <div className="mb-2 flex flex-wrap items-center gap-2">
                 <SeverityPill severity={finding.severity} />
                 <CategoryTag category={finding.category} />
+                <ComplexityPills
+                    time={finding.timeComplexity}
+                    space={finding.spaceComplexity}
+                />
                 {finding.line !== undefined && (
                     <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
                         line {finding.line}
@@ -448,6 +452,10 @@ function ReviewedFindingCard({ reviewed }: { reviewed: ReviewedFinding }) {
                 <DecisionPill decision={reviewed.decision} />
                 <SeverityPill severity={displayed.severity} />
                 <CategoryTag category={displayed.category} />
+                <ComplexityPills
+                    time={displayed.timeComplexity}
+                    space={displayed.spaceComplexity}
+                />
                 {displayed.line !== undefined && (
                     <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
                         line {displayed.line}
@@ -463,6 +471,34 @@ function ReviewedFindingCard({ reviewed }: { reviewed: ReviewedFinding }) {
                 <span className="text-foreground/80">{reviewed.reason}</span>
             </p>
         </div>
+    );
+}
+
+// Renders one or two small Big-O badges (T: O(...), S: O(...)) when the
+// Analyzer attached complexity tags to a finding. Both props are optional —
+// non-algorithmic findings and legacy pre-pivot data simply don't render
+// anything. Compact muted styling so the row stays scannable.
+function ComplexityPills({ time, space }: { time?: string; space?: string }) {
+    if (!time && !space) return null;
+    return (
+        <>
+            {time && (
+                <Badge
+                    variant="outline"
+                    className="h-auto rounded-full border-border/60 bg-background/60 px-2 py-0.5 font-mono text-[10px] tracking-tight text-muted-foreground"
+                >
+                    T: {time}
+                </Badge>
+            )}
+            {space && (
+                <Badge
+                    variant="outline"
+                    className="h-auto rounded-full border-border/60 bg-background/60 px-2 py-0.5 font-mono text-[10px] tracking-tight text-muted-foreground"
+                >
+                    S: {space}
+                </Badge>
+            )}
+        </>
     );
 }
 
@@ -533,19 +569,32 @@ function VerdictPill({ verdict }: { verdict: Verdict }) {
 
 // ─────────────────────────────── Score bars ────────────────────────────────
 
-const SCORE_LABELS: Array<{ key: keyof EvaluatorScores; label: string }> = [
-    { key: 'correctness',     label: 'Correctness'      },
-    { key: 'bugFixCoverage',  label: 'Bug fix coverage' },
-    { key: 'stability',       label: 'Stability'        },
-    { key: 'readability',     label: 'Readability'      },
-    { key: 'overall',         label: 'Overall'          },
+// Required scores render always; CP-specific optional scores (timeComplexityImproved,
+// edgeCaseCoverage) render only when the Evaluator populated them. Order
+// matters: optional scores sit between the algorithmic dimensions and the
+// final "Overall" bar so the visual hierarchy stays consistent.
+type ScoreRow = { key: keyof EvaluatorScores; label: string };
+const REQUIRED_SCORE_ROWS: ScoreRow[] = [
+    { key: 'correctness',    label: 'Correctness'      },
+    { key: 'bugFixCoverage', label: 'Bug fix coverage' },
+    { key: 'stability',      label: 'Stability'        },
+    { key: 'readability',    label: 'Readability'      },
+];
+const OPTIONAL_SCORE_ROWS: ScoreRow[] = [
+    { key: 'timeComplexityImproved', label: 'Time complexity ↑' },
+    { key: 'edgeCaseCoverage',       label: 'Edge case coverage' },
 ];
 
 function ScoreBars({ scores }: { scores: EvaluatorScores }) {
+    const rows: ScoreRow[] = [
+        ...REQUIRED_SCORE_ROWS,
+        ...OPTIONAL_SCORE_ROWS.filter((r) => scores[r.key] !== undefined),
+        { key: 'overall', label: 'Overall' },
+    ];
     return (
         <div className="space-y-2.5">
-            {SCORE_LABELS.map(({ key, label }, idx) => {
-                const raw = scores[key];
+            {rows.map(({ key, label }, idx) => {
+                const raw = scores[key] ?? 0;
                 const clamped = Math.max(0, Math.min(100, raw));
                 const isOverall = key === 'overall';
                 return (

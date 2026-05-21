@@ -8,6 +8,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { reviewStream } from '@/lib/api';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { ReviewResults } from '@/components/ReviewResults';
@@ -23,15 +24,17 @@ import type {
     TerminationReason,
 } from '@/lib/types';
 
+// Narrowed to the two languages our CP pipeline targets. Sandbox execution
+// (Phase 2) needs one container image per language, so the supported set
+// stays small on purpose. Add more only when their sandbox is also wired.
 const LANGUAGES = [
-    { value: 'javascript', label: 'JavaScript' },
-    { value: 'typescript', label: 'TypeScript' },
-    { value: 'python',     label: 'Python'     },
-    { value: 'go',         label: 'Go'         },
-    { value: 'rust',       label: 'Rust'       },
-    { value: 'java',       label: 'Java'       },
-    { value: 'cpp',        label: 'C++'        },
+    { value: 'python', label: 'Python' },
+    { value: 'cpp',    label: 'C++'    },
 ];
+
+// Backend requirement (z.string().min(10)). Mirrored here so the submit button
+// disables on too-short input instead of letting a request fail at the API.
+const PROBLEM_STATEMENT_MIN = 10;
 
 const STAGES: ReadonlyArray<{ key: Stage; glyph: string; label: string }> = [
     { key: 'analyzer',  glyph: '01', label: 'Analyzer'  },
@@ -102,7 +105,8 @@ export default function ReviewPage() {
     const { refreshRecents, newReviewVersion } = useSidebar();
 
     const [code, setCode] = useState('');
-    const [language, setLanguage] = useState<string>('typescript');
+    const [language, setLanguage] = useState<string>('python');
+    const [problemStatement, setProblemStatement] = useState('');
     const [maxIterations, setMaxIterations] = useState<number>(3);
 
     // Stream state — now iteration-aware.
@@ -118,7 +122,7 @@ export default function ReviewPage() {
 
     // Submit-time snapshot — anchors diff baselines & Discard reverts.
     const [originalCode, setOriginalCode] = useState('');
-    const [originalLanguage, setOriginalLanguage] = useState<string>('typescript');
+    const [originalLanguage, setOriginalLanguage] = useState<string>('python');
 
     const abortRef = useRef<AbortController | null>(null);
 
@@ -143,6 +147,7 @@ export default function ReviewPage() {
         abortRef.current?.abort();
         abortRef.current = null;
         setCode('');
+        setProblemStatement('');
         setOriginalCode('');
         setOriginalLanguage(language);
         setIterations([]);
@@ -180,7 +185,7 @@ export default function ReviewPage() {
 
         try {
             await reviewStream(
-                { code, language, maxIterations },
+                { code, language, problemStatement, maxIterations },
                 {
                     signal: controller.signal,
                     onEvent: (ev) => {
@@ -321,7 +326,10 @@ export default function ReviewPage() {
         setLanguage(originalLanguage);
     };
 
-    const canSubmit  = code.trim().length > 0 && runState !== 'running';
+    const canSubmit =
+        code.trim().length > 0 &&
+        problemStatement.trim().length >= PROBLEM_STATEMENT_MIN &&
+        runState !== 'running';
     const isRunning  = runState === 'running';
     const hasResults = iterations.length > 0;
 
@@ -339,10 +347,11 @@ export default function ReviewPage() {
                 <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                     New review
                 </p>
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Run a review.</h1>
+                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Review a CP submission.</h1>
                 <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                    Paste your code below. The agents will analyze, critique, improve, and evaluate it —
-                    looping until the code converges or the iteration cap is reached.
+                    Paste the problem statement and your candidate solution (Python or C++). The agents
+                    will analyze for correctness and complexity, critique their own findings, rewrite
+                    toward an optimal solution, and judge whether the rewrite is actually better.
                 </p>
             </header>
 
@@ -404,6 +413,35 @@ export default function ReviewPage() {
                                 </div>
                             </div>
 
+                            {/* Problem statement — required. The agents reason
+                                against this on every iteration; constraints
+                                (n ≤ 10^5, time limit) drive the complexity
+                                verdict. Min 10 chars mirrors the backend Zod
+                                rule so the button disables before the network
+                                round-trip. */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <Label
+                                        htmlFor="problemStatement"
+                                        className="font-mono text-xs uppercase tracking-widest text-muted-foreground"
+                                    >
+                                        Problem statement
+                                    </Label>
+                                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                        {problemStatement.length.toLocaleString()} chars
+                                    </span>
+                                </div>
+                                <Textarea
+                                    id="problemStatement"
+                                    value={problemStatement}
+                                    onChange={(e) => setProblemStatement(e.target.value)}
+                                    disabled={isRunning}
+                                    rows={6}
+                                    placeholder="Paste the full problem statement, including constraints (n ≤ …, time limit, value ranges). The reviewer needs the constraints to judge if your algorithm is fast enough."
+                                    className="font-mono text-sm leading-relaxed"
+                                />
+                            </div>
+
                             <div className="space-y-2">
                                 <div className="flex items-center justify-between">
                                     <Label
@@ -423,7 +461,9 @@ export default function ReviewPage() {
                                         language={language}
                                         readOnly={isRunning}
                                         height={320}
-                                        placeholder="// paste your code here"
+                                        placeholder={language === 'cpp'
+                                            ? '// paste your C++ solution here'
+                                            : '# paste your Python solution here'}
                                     />
                                 </div>
                             </div>
@@ -571,7 +611,7 @@ export default function ReviewPage() {
                                     ? TERMINATION_LABEL[loopResult.terminationReason]
                                     : runState === 'error'
                                         ? 'A stage failed — try again.'
-                                        : 'Paste code and run a review.'}
+                                        : 'Paste the problem and your solution to start.'}
                         </p>
                     </Card>
                 </aside>
