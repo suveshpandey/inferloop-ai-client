@@ -15,6 +15,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiRequestError } from '@/lib/api';
 import { LoadingState } from '@/components/ui/spinner';
+import { Card } from '@/components/ui/card';
 import { ReviewResults } from '@/components/ReviewResults';
 import type { IterationData } from '@/app/(app)/review/page';
 import type { RunDetail, LoopResult } from '@/lib/types';
@@ -121,6 +122,21 @@ export default function HistoryDetailPage({ params }: Props) {
                     {new Date(run.createdAt).toLocaleString()}
                 </p>
             </header>
+
+            {/* Problem statement — present on post-pivot runs only. Legacy
+                generic-review runs render without this card. Scroll inside
+                the card so a long statement doesn't push the iteration view
+                below the fold. */}
+            {run.problemStatement && (
+                <Card className="mb-6 gap-0 bg-card/50 p-5">
+                    <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Problem statement
+                    </p>
+                    <div className="themed-scrollbar max-h-64 overflow-auto whitespace-pre-wrap font-mono text-sm leading-relaxed text-foreground/90">
+                        {run.problemStatement}
+                    </div>
+                </Card>
+            )}
 
             <ReviewResults
                 iterations={iterations}
