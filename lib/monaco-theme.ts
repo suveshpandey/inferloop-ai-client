@@ -198,14 +198,6 @@ export const INFERLOOP_MONO_THEME_LIGHT = {
 export const MONACO_DARK_THEME  = 'inferloop-mono';
 export const MONACO_LIGHT_THEME = 'inferloop-mono-light';
 
-// Internal language → Monaco language ID mapping. Shared between Editor and
-// DiffEditor so a single change updates both surfaces.
-export const LANGUAGE_TO_MONACO: Record<string, string> = {
-    javascript: 'javascript',
-    typescript: 'typescript',
-    python:     'python',
-    go:         'go',
-    rust:       'rust',
-    java:       'java',
-    cpp:        'cpp',
-};
+// Language → Monaco id mapping has moved to `lib/languages.ts` so the
+// supported-language list lives in exactly one place. Use `toMonacoLanguage`
+// from there.
