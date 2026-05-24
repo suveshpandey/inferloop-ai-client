@@ -33,14 +33,14 @@ export const SUPPORTED_LANGUAGES: readonly SupportedLanguage[] = [
         label:        'Python',
         monaco:       'python',
         placeholder:  '# paste your Python solution here',
-        sandboxReady: false,
+        sandboxReady: true,
     },
     {
         value:        'cpp',
         label:        'C++',
         monaco:       'cpp',
         placeholder:  '// paste your C++ solution here',
-        sandboxReady: false,
+        sandboxReady: true,
     },
 ];
 
