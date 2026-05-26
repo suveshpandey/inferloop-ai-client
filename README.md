@@ -51,6 +51,7 @@ inferloop-client/
 │   └── SidebarContext.tsx         # Mobile drawer + recentsVersion bump for sidebar refresh
 ├── lib/
 │   ├── api.ts                     # fetch wrapper with auto-refresh + SSE consumer (reviewStream)
+│   ├── languages.ts               # Single source of truth for supported languages (Python, C++) + sandboxReady gate
 │   ├── types.ts                   # Mirrors backend schemas (Finding, RunDetail, StreamEvent, ...)
 │   ├── monaco-theme.ts            # Light + dark Monaco themes, language map
 │   ├── notify.ts                  # Sonner wrappers — notifyError / notifySuccess / notifyInfo
@@ -103,8 +104,8 @@ Open `http://localhost:3000`. The backend must also be running.
 | Command | What it does |
 |---|---|
 | `pnpm dev` | Start Next.js in dev mode (Turbopack, hot reload) |
-| `pnpm build` | Production build |
-| `pnpm start` | Run the production build |
+| `pnpm build` | Production build. Type-checks and lints the whole app — fails on any error, so it doubles as the pre-push check. |
+| `pnpm start` | Run the production build (run `pnpm build` first). |
 | `pnpm lint` | Run ESLint |
 
 ---
