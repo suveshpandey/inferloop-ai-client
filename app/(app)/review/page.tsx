@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { reviewStream } from '@/lib/api';
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, placeholderFor } from '@/lib/languages';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { ReviewResults } from '@/components/ReviewResults';
 import { CodeEditor } from '@/components/CodeEditor';
@@ -23,14 +24,6 @@ import type {
     LoopResult,
     TerminationReason,
 } from '@/lib/types';
-
-// Narrowed to the two languages our CP pipeline targets. Sandbox execution
-// (Phase 2) needs one container image per language, so the supported set
-// stays small on purpose. Add more only when their sandbox is also wired.
-const LANGUAGES = [
-    { value: 'python', label: 'Python' },
-    { value: 'cpp',    label: 'C++'    },
-];
 
 // Backend requirement (z.string().min(10)). Mirrored here so the submit button
 // disables on too-short input instead of letting a request fail at the API.
@@ -105,7 +98,7 @@ export default function ReviewPage() {
     const { refreshRecents, newReviewVersion } = useSidebar();
 
     const [code, setCode] = useState('');
-    const [language, setLanguage] = useState<string>('python');
+    const [language, setLanguage] = useState<string>(DEFAULT_LANGUAGE);
     const [problemStatement, setProblemStatement] = useState('');
     const [maxIterations, setMaxIterations] = useState<number>(3);
 
@@ -122,7 +115,7 @@ export default function ReviewPage() {
 
     // Submit-time snapshot — anchors diff baselines & Discard reverts.
     const [originalCode, setOriginalCode] = useState('');
-    const [originalLanguage, setOriginalLanguage] = useState<string>('python');
+    const [originalLanguage, setOriginalLanguage] = useState<string>(DEFAULT_LANGUAGE);
 
     const abortRef = useRef<AbortController | null>(null);
 
@@ -380,7 +373,7 @@ export default function ReviewPage() {
                                     disabled={isRunning}
                                     className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 font-mono text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
                                 >
-                                    {LANGUAGES.map((l) => (
+                                    {SUPPORTED_LANGUAGES.map((l) => (
                                         <option key={l.value} value={l.value} className="bg-background">
                                             {l.label}
                                         </option>
@@ -461,9 +454,7 @@ export default function ReviewPage() {
                                         language={language}
                                         readOnly={isRunning}
                                         height={320}
-                                        placeholder={language === 'cpp'
-                                            ? '// paste your C++ solution here'
-                                            : '# paste your Python solution here'}
+                                        placeholder={placeholderFor(language)}
                                     />
                                 </div>
                             </div>

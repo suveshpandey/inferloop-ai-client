@@ -14,10 +14,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 import {
     INFERLOOP_MONO_THEME,
     INFERLOOP_MONO_THEME_LIGHT,
-    LANGUAGE_TO_MONACO,
     MONACO_DARK_THEME,
     MONACO_LIGHT_THEME,
 } from '@/lib/monaco-theme';
+import { toMonacoLanguage } from '@/lib/languages';
 import { setupMonacoWorkers } from '@/lib/monaco-workers';
 
 // Dynamic import keeps Monaco out of the server bundle and lets us order the
@@ -70,7 +70,7 @@ export function CodeEditor({
     height = 320,
     placeholder,
 }: Props) {
-    const monacoLang = LANGUAGE_TO_MONACO[language] ?? 'plaintext';
+    const monacoLang = toMonacoLanguage(language);
     const { theme } = useTheme();
     const activeTheme = theme === 'light' ? MONACO_LIGHT_THEME : MONACO_DARK_THEME;
 
