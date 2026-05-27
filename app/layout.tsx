@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   description: "Multi-agent code analysis — analyze, critique, improve, evaluate.",
   icons: {
     icon: [
-      { url: "/inferloop-ai-favicon.png", type: "image/png" },
+      { url: "/inferloop.ai.png", type: "image/png" },
     ],
     shortcut: "/inferloop-ai-favicon.png",
     apple:    "/inferloop-ai-favicon.png",
