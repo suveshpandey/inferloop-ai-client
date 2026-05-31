@@ -667,7 +667,7 @@ function PassRatePill({ rate }: { rate: number }) {
 
 // ─────────────────────────────── Score bars ────────────────────────────────
 
-// Required scores render always; CP-specific optional scores (timeComplexityImproved,
+// Required scores render always; DSA / CP-specific optional scores (timeComplexityImproved,
 // edgeCaseCoverage) render only when the Evaluator populated them. Order
 // matters: optional scores sit between the algorithmic dimensions and the
 // final "Overall" bar so the visual hierarchy stays consistent.

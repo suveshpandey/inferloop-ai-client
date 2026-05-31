@@ -230,7 +230,7 @@ export async function reviewStream(
     input: {
         code: string;
         language: string;
-        // Required after the CP pivot — every submission is "code solving a
+        // Required after the DSA / CP pivot — every submission is "code solving a
         // specific problem", and every agent reasons against the problem.
         problemStatement: string;
         maxIterations?: number;

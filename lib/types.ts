@@ -19,7 +19,7 @@ export type Finding = {
     title: string;
     description: string;
     line?: number;
-    // Optional CP-oriented complexity tags. Short Big-O strings like "O(n)" /
+    // Optional DSA / CP-oriented complexity tags. Short Big-O strings like "O(n)" /
     // "O(n log n)" — the Analyzer attaches them on findings about runtime or
     // memory. Absent on non-algorithmic findings and on all pre-pivot runs.
     timeComplexity?: string;
@@ -71,7 +71,7 @@ export type EvaluatorScores = {
     stability: number;
     readability: number;
     overall: number;
-    // Optional CP signals. Populated by the Evaluator when the rewrite touches
+    // Optional DSA / CP signals. Populated by the Evaluator when the rewrite touches
     // on algorithmic complexity or edge-case handling — absent otherwise (and
     // on all pre-pivot iterations).
     timeComplexityImproved?: number;

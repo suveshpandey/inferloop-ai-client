@@ -443,7 +443,7 @@ export default function ReviewPage() {
                 <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
                     New review
                 </p>
-                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Review a CP submission.</h1>
+                <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Review a DSA / CP submission.</h1>
                 <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
                     Paste the problem statement and your candidate solution (Python or C++). The agents
                     will analyze for correctness and complexity, critique their own findings, rewrite
