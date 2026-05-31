@@ -40,20 +40,22 @@ export default function ProfilePage() {
     return (
         <div className="mx-auto max-w-3xl px-6 py-12 sm:py-16">
             {/* ── Hero ───────────────────────────────────────────────── */}
-            <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-2xl font-semibold uppercase tracking-wider text-accent-foreground">
-                    {initials}
-                </div>
-                <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                        Account
-                    </p>
-                    <h1 className="mt-1 truncate text-3xl font-semibold tracking-tight sm:text-4xl">
-                        {displayName}
-                    </h1>
-                    <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
-                        {email}
-                    </p>
+            <div>
+                <h2 className="font-mono text-xs uppercase tracking-widest text-foreground">
+                    Account
+                </h2>
+                <div className="mt-5 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-accent font-mono text-2xl font-semibold uppercase tracking-wider text-accent-foreground">
+                        {initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h1 className="truncate text-3xl font-semibold tracking-tight sm:text-4xl">
+                            {displayName}
+                        </h1>
+                        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                            {email}
+                        </p>
+                    </div>
                 </div>
             </div>
 
