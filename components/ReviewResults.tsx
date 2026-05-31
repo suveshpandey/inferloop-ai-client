@@ -25,6 +25,7 @@ import type {
     ReviewedFinding,
     Verdict,
     EvaluatorScores,
+    LiveTestResult,
     LoopResult,
     TerminationReason,
 } from '@/lib/types';
@@ -49,7 +50,9 @@ export function ReviewResults({ iterations, language, loopResult, onKeep, onDisc
                 <LoopSummaryBanner result={loopResult} />
             )}
 
-            {/* Iteration accordions */}
+            {/* Iteration accordions. The final-evaluation section is now
+                rendered separately by each page (review + history) AFTER the
+                TestCasePanel, so it sits at the very bottom of the page. */}
             <div className="space-y-3">
                 {iterations.map((iter) => (
                     <IterationAccordion
@@ -67,13 +70,27 @@ export function ReviewResults({ iterations, language, loopResult, onKeep, onDisc
     );
 }
 
+// Exported so the review + history pages can render the final verdict at the
+// very bottom (after the TestCasePanel), instead of inside ReviewResults.
+// Wrapped in a highlighted container with generous top margin so it reads as
+// the page's terminal summary tile, clearly separated from the test panel above.
+export function FinalEvaluation({ data }: { data: EvaluatorOutput }) {
+    return (
+        <Card className="mt-12 gap-0 border-foreground/15 bg-card p-6 shadow-sm ring-1 ring-foreground/5">
+            <EvaluatorSection data={data} />
+        </Card>
+    );
+}
+
 // ────────────────────────── Loop summary banner ────────────────────────────
 
 const TERMINATION_TEXT: Record<TerminationReason, { label: string; tone: 'good' | 'neutral' | 'warn' }> = {
-    converged:        { label: 'Converged — no further improvements possible',     tone: 'good' },
+    'all-pass':       { label: 'All tests pass — solution is correct',             tone: 'good' },
+    stalled:          { label: 'Stopped — pass-rate stopped improving',            tone: 'warn' },
     'no-findings':    { label: 'Clean code — no findings to fix',                  tone: 'good' },
-    regressed:        { label: 'Stopped — last iteration regressed, rolled back',  tone: 'warn' },
     'max-iterations': { label: 'Hit max iterations — further passes may help',     tone: 'neutral' },
+    converged:        { label: 'Converged — no further improvements possible',     tone: 'good' },
+    regressed:        { label: 'Stopped — last iteration regressed, rolled back',  tone: 'warn' },
 };
 
 function LoopSummaryBanner({ result }: { result: LoopResult }) {
@@ -115,11 +132,10 @@ function IterationAccordion({
 }) {
     const [open, setOpen] = useState(defaultOpen);
 
-    // Header summary — verdict pill + finding count for at-a-glance.
-    const verdict     = iter.evaluator?.verdict;
+    // Header summary — measured pass-rate + finding count for at-a-glance.
+    const passRate    = iter.testPassRate;
     const findingsN   = iter.analyzer?.findings.length ?? 0;
     const changesN    = iter.improver?.changeNotes.length ?? 0;
-    const overall     = iter.evaluator?.scores.overall;
 
     return (
         <div className="animate-fade-up overflow-hidden rounded-lg border border-border bg-card/40">
@@ -137,13 +153,13 @@ function IterationAccordion({
                         Iteration {iter.iteration}
                     </p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm">
-                        {verdict ? (
-                            <VerdictPill verdict={verdict} />
-                        ) : (
+                        {passRate !== null && passRate !== undefined ? (
+                            <PassRatePill rate={passRate} />
+                        ) : !iter.improver ? (
                             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
                                 running…
                             </span>
-                        )}
+                        ) : null}
                         {iter.analyzer && (
                             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                                 {findingsN} finding{findingsN === 1 ? '' : 's'}
@@ -152,11 +168,6 @@ function IterationAccordion({
                         {iter.improver && (
                             <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                                 · {changesN} change{changesN === 1 ? '' : 's'}
-                            </span>
-                        )}
-                        {overall !== undefined && (
-                            <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                                · score {overall}
                             </span>
                         )}
                     </div>
@@ -203,7 +214,10 @@ function IterationBody({
                     onDiscard={onDiscard ? () => onDiscard(iter) : undefined}
                 />
             )}
-            {iter.evaluator && <EvaluatorSection data={iter.evaluator} />}
+            {/* Per-iteration test results — measured sandbox pass/fail. */}
+            {iter.testResults && iter.testResults.length > 0 && (
+                <TestResultsSection results={iter.testResults} passRate={iter.testPassRate ?? null} />
+            )}
         </div>
     );
 }
@@ -333,19 +347,86 @@ function ImproverSection({
     );
 }
 
+// ─────────────────────── Per-iteration test results ───────────────────────
+
+function TestResultsSection({ results, passRate }: { results: LiveTestResult[]; passRate: number | null }) {
+    const [openIdx, setOpenIdx] = useState<number | null>(null);
+    const passed = results.filter((r) => r.passed).length;
+    return (
+        <section>
+            <SectionMarker
+                number="04"
+                label="Tests"
+                badge={`${passed}/${results.length}${passRate !== null ? ` · ${passRate}%` : ''}`}
+            />
+            <Card className="gap-0 bg-card/50 p-2.5">
+                <ul className="space-y-1.5">
+                    {results.map((r, i) => {
+                        const open = openIdx === i;
+                        const failReason = REASON_LABEL[r.errorReason] ?? r.errorReason;
+                        return (
+                            <li key={i} className="overflow-hidden rounded-md border border-border/60 bg-background/40">
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenIdx(open ? null : i)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                                >
+                                    <span className="truncate font-mono text-sm">{r.name}</span>
+                                    <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                        {r.durationMs}ms
+                                    </span>
+                                    <Badge
+                                        variant="outline"
+                                        className={`h-auto shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${
+                                            r.passed
+                                                ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                                                : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200'
+                                        }`}
+                                    >
+                                        {r.passed ? 'pass' : failReason}
+                                    </Badge>
+                                </button>
+                                {open && !r.passed && (
+                                    <div className="border-t border-border/60 bg-background/30 px-3 py-2">
+                                        <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                            {r.errorReason === 'wrong_answer' ? 'Actual output' : 'Stderr / error'}
+                                        </p>
+                                        <pre className="themed-scrollbar max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/60 bg-background/60 p-2 font-mono text-xs leading-relaxed text-rose-700 dark:text-rose-200">
+                                            {(r.errorReason === 'wrong_answer' ? r.actualOutput : (r.stderr || r.errorReason)) || '(no output)'}
+                                        </pre>
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            </Card>
+        </section>
+    );
+}
+
+const REASON_LABEL: Record<string, string> = {
+    ok:            'pass',
+    wrong_answer:  'wrong answer',
+    timeout:       'timeout',
+    runtime_error: 'runtime error',
+    compile_error: 'compile error',
+    sandbox_error: 'sandbox error',
+};
+
 // ───────────────────────────── 04 · Evaluator ──────────────────────────────
 
 function EvaluatorSection({ data }: { data: EvaluatorOutput }) {
     return (
         <section>
             <SectionMarker
-                number="04"
-                label="Evaluation"
+                number="✓"
+                label="Final evaluation"
                 badge={<VerdictPill verdict={data.verdict} />}
             />
             {data.rationale && <SectionSummary>{data.rationale}</SectionSummary>}
 
-            <Card className="gap-0 bg-card/50 p-5">
+            <Card className="gap-0 bg-background/50 p-5">
                 <ScoreBars scores={data.scores} />
             </Card>
 
@@ -354,7 +435,7 @@ function EvaluatorSection({ data }: { data: EvaluatorOutput }) {
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                         Unaddressed findings
                     </p>
-                    <Card className="gap-0 bg-card/50 p-2.5">
+                    <Card className="gap-0 bg-background/50 p-2.5">
                         <ul className="space-y-2">
                             {data.unaddressedFindings.map((f, i) => (
                                 <li key={i}>
@@ -567,6 +648,23 @@ function VerdictPill({ verdict }: { verdict: Verdict }) {
     );
 }
 
+// Measured sandbox pass-rate, shown per iteration. Green at 100%, rose at 0%,
+// amber in between — the one "measured, not LLM-judged" signal.
+function PassRatePill({ rate }: { rate: number }) {
+    const style =
+        rate >= 100 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200' :
+        rate <= 0   ? 'border-rose-500/40    bg-rose-500/10    text-rose-700    dark:text-rose-200'    :
+                      'border-amber-500/40   bg-amber-500/10   text-amber-700   dark:text-amber-200';
+    return (
+        <Badge
+            variant="outline"
+            className={`h-auto rounded-full px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest ${style}`}
+        >
+            tests {rate}%
+        </Badge>
+    );
+}
+
 // ─────────────────────────────── Score bars ────────────────────────────────
 
 // Required scores render always; CP-specific optional scores (timeComplexityImproved,
@@ -581,6 +679,7 @@ const REQUIRED_SCORE_ROWS: ScoreRow[] = [
     { key: 'readability',    label: 'Readability'      },
 ];
 const OPTIONAL_SCORE_ROWS: ScoreRow[] = [
+    { key: 'testPassRate',           label: 'Test pass rate ✓' },
     { key: 'timeComplexityImproved', label: 'Time complexity ↑' },
     { key: 'edgeCaseCoverage',       label: 'Edge case coverage' },
 ];

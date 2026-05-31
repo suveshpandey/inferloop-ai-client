@@ -7,6 +7,8 @@ import type {
     ApiError,
     RunSummary,
     RunDetail,
+    TestCase,
+    ExecuteTestsResponse,
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -85,7 +87,7 @@ async function refreshAccessToken(): Promise<string | null> {
 }
 
 type RequestOpts = {
-    method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+    method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     body?: unknown;
     auth?: boolean;  // attach Authorization header (default: true)
 };
@@ -186,6 +188,27 @@ export const api = {
 
     deleteRun(id: string): Promise<void> {
         return request<void>(`/api/runs/${id}`, { method: 'DELETE' });
+    },
+
+    // ── Test cases (Phase 2.5) ──
+    listTestCases(runId: string): Promise<{ testCases: TestCase[] }> {
+        return request<{ testCases: TestCase[] }>(`/api/runs/${runId}/test-cases`);
+    },
+
+    createTestCase(runId: string, input: { name: string; input: string; expectedOutput: string }): Promise<{ testCase: TestCase }> {
+        return request<{ testCase: TestCase }>(`/api/runs/${runId}/test-cases`, { method: 'POST', body: input });
+    },
+
+    updateTestCase(runId: string, id: string, input: Partial<{ name: string; input: string; expectedOutput: string }>): Promise<{ testCase: TestCase }> {
+        return request<{ testCase: TestCase }>(`/api/runs/${runId}/test-cases/${id}`, { method: 'PATCH', body: input });
+    },
+
+    deleteTestCase(runId: string, id: string): Promise<void> {
+        return request<void>(`/api/runs/${runId}/test-cases/${id}`, { method: 'DELETE' });
+    },
+
+    executeTests(runId: string): Promise<ExecuteTestsResponse> {
+        return request<ExecuteTestsResponse>(`/api/runs/${runId}/execute-tests`, { method: 'POST' });
     },
 
     // Streaming review — see reviewStream() below.

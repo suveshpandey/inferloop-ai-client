@@ -76,6 +76,9 @@ export type EvaluatorScores = {
     // on all pre-pivot iterations).
     timeComplexityImproved?: number;
     edgeCaseCoverage?: number;
+    // Measured sandbox pass-rate, echoed by the Evaluator. The one "measured,
+    // not LLM-judged" score — surfaced distinctly in the UI.
+    testPassRate?: number;
 };
 
 export type EvaluatorOutput = {
@@ -94,23 +97,60 @@ export type ReviewResult = {
     evaluation: EvaluatorOutput;
 };
 
+// ─────────────────────────── Test cases / results ──────────────────────────
+
+export type TestSource = 'generated' | 'manual';
+
+// A generated test case as it streams in the loop result (no DB id yet).
+export type TestCaseSpec = {
+    name: string;
+    input: string;
+    expectedOutput: string;
+    category?: 'sample' | 'edge';
+};
+
+// A per-case execution result during the loop (keyed by index into testCases).
+export type LiveTestResult = {
+    caseIndex: number;
+    name: string;
+    passed: boolean;
+    actualOutput: string;
+    stderr: string;
+    exitCode: number | null;
+    durationMs: number;
+    errorReason: string;  // 'ok' | 'wrong_answer' | 'timeout' | 'runtime_error' | 'compile_error' | 'sandbox_error'
+};
+
 // ─────────────────────── Iterative loop result ─────────────────────────────
 
 export type TerminationReason =
-    | 'converged'        // evaluator: unchanged
-    | 'regressed'        // evaluator: regressed (rolled back)
-    | 'no-findings'      // analyzer found nothing
-    | 'max-iterations';  // hit the cap
+    | 'all-pass'         // tests reached 100%
+    | 'stalled'          // pass-rate stopped improving
+    | 'no-findings'      // no tests available and analyzer found nothing
+    | 'max-iterations'   // hit the cap
+    | 'converged'        // legacy (pre-2.4): evaluator unchanged
+    | 'regressed';       // legacy (pre-2.4): evaluator regressed
 
-export type IterationResult = ReviewResult & {
-    iteration: number;       // 1-based
-    inputCode: string;       // what was fed in for this iteration
+// The Evaluator no longer runs per iteration — each iteration carries its
+// measured pass-rate instead; the single verdict lives on LoopResult.
+export type IterationResult = {
+    iteration:    number;       // 1-based
+    inputCode:    string;       // what was fed in for this iteration
+    findings:     AnalyzerOutput;
+    reviewed:     CriticOutput;
+    improved:     ImproverOutput;
+    testResults:  LiveTestResult[];
+    testPassRate: number | null;
 };
 
 export type LoopResult = {
     iterations:        IterationResult[];
     finalCode:         string;
     terminationReason: TerminationReason;
+    testCases:         TestCaseSpec[];
+    testPassRate:      number | null;            // best pass-rate across iterations
+    finalResults:      LiveTestResult[];         // finalCode's per-case results
+    finalEvaluation:   EvaluatorOutput | null;   // single end-of-loop verdict
 };
 
 // ──────────────────────────────── Auth ─────────────────────────────────────
@@ -141,17 +181,22 @@ export type Stage = 'analyzer' | 'critic' | 'improver' | 'evaluator';
 // /`loop_complete` are loop-level milestones. `done` carries the full loop
 // result so reconnecting clients can render the final state without replay.
 export type StreamEvent =
-    | { type: 'loop_start';         maxIterations: number }
-    | { type: 'iteration_start';    iteration: number }
-    | { type: 'stage_start';        iteration: number; stage: Stage }
-    | { type: 'stage_complete';     iteration: number; stage: 'analyzer';  result: AnalyzerOutput }
-    | { type: 'stage_complete';     iteration: number; stage: 'critic';    result: CriticOutput }
-    | { type: 'stage_complete';     iteration: number; stage: 'improver';  result: ImproverOutput }
-    | { type: 'stage_complete';     iteration: number; stage: 'evaluator'; result: EvaluatorOutput }
-    | { type: 'iteration_complete'; iteration: number; result: IterationResult }
-    | { type: 'loop_complete';      result: LoopResult }
-    | { type: 'done';               result: LoopResult; runId: string | null }
-    | { type: 'error';              error: string };
+    | { type: 'loop_start';                maxIterations: number }
+    | { type: 'tests_generated';           count: number; cases: TestCaseSpec[] }
+    | { type: 'iteration_start';           iteration: number }
+    | { type: 'stage_start';               iteration: number; stage: Stage }
+    | { type: 'stage_complete';            iteration: number; stage: 'analyzer';  result: AnalyzerOutput }
+    | { type: 'stage_complete';            iteration: number; stage: 'critic';    result: CriticOutput }
+    | { type: 'stage_complete';            iteration: number; stage: 'improver';  result: ImproverOutput }
+    | { type: 'tests_running';             iteration: number }
+    | { type: 'test_case_start';           iteration: number; caseIndex: number; name: string }
+    | { type: 'test_case_complete';        iteration: number; result: LiveTestResult }
+    | { type: 'iteration_complete';        iteration: number; result: IterationResult }
+    | { type: 'final_evaluation_starting' }
+    | { type: 'final_evaluation';          result: EvaluatorOutput }
+    | { type: 'loop_complete';             result: LoopResult }
+    | { type: 'done';                      result: LoopResult; runId: string | null }
+    | { type: 'error';                     error: string };
 
 // ─────────────────────────── Run history shapes ───────────────────────────
 //
@@ -178,9 +223,41 @@ export type StoredIteration = {
     analyzerOutput:  AnalyzerOutput;
     criticOutput:    CriticOutput;
     improverOutput:  ImproverOutput;
-    evaluatorOutput: EvaluatorOutput;
-    overallScore:    number;
+    // Null on test-driven (2.4+) runs — the Evaluator runs once at the end now.
+    // Populated only on legacy pre-2.4 iterations.
+    evaluatorOutput: EvaluatorOutput | null;
+    overallScore:    number | null;
+    // This iteration's measured pass-rate (0–100); null when tests didn't run.
+    testPassRate:    number | null;
     createdAt:       string;
+};
+
+// A persisted test case (has a DB id + source). Mirrors the backend TestCase.
+export type TestCase = {
+    id:             string;
+    runId:          string;
+    name:           string;
+    input:          string;
+    expectedOutput: string;
+    source:         TestSource;
+    timeLimitMs?:   number | null;
+    memoryLimitMb?: number | null;
+    createdAt:      string;
+};
+
+// A persisted execution result row. Mirrors the backend TestResult.
+export type TestResult = {
+    id:           string;
+    testCaseId:   string;
+    runId:        string;
+    iterationId?: string | null;
+    passed:       boolean;
+    actualOutput?: string | null;
+    stderr?:      string | null;
+    exitCode?:    number | null;
+    durationMs?:  number | null;
+    errorReason?: string | null;
+    createdAt:    string;
 };
 
 export type RunDetail = {
@@ -198,7 +275,31 @@ export type RunDetail = {
     iterations:        StoredIteration[];
     // Optional because legacy pre-pivot runs were saved without one.
     problemStatement?: string | null;
+    // Phase 2.4+. Empty arrays / null on legacy runs.
+    testPassRate?:     number | null;
+    finalEvaluation?:  EvaluatorOutput | null;
+    testCases:         TestCase[];
+    testResults:       TestResult[];
 };
+
+// Response from POST /api/runs/:id/execute-tests. Results keyed by testCaseId.
+export type ExecutedTestResult = {
+    testCaseId:   string;
+    name:         string;
+    passed:       boolean;
+    actualOutput: string;
+    stderr:       string;
+    exitCode:     number | null;
+    durationMs:   number;
+    errorReason:  string;
+};
+
+export type ExecuteTestsResponse = {
+    results:      ExecutedTestResult[];
+    testPassRate: number | null;
+    ranAt:        string;
+};
+
 
 // ───────────────────────── API error envelope ──────────────────────────────
 
