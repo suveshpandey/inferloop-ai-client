@@ -4,16 +4,21 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 
 type AgentState = 'pending' | 'running' | 'complete';
-type Stage = 'analyzer' | 'critic' | 'improver' | 'evaluator';
+type Stage = 'test-gen' | 'analyzer' | 'critic' | 'improver' | 'tests' | 'evaluator';
 
+// Mirrors the live review timeline: Test generator runs once before the loop,
+// the per-iteration agents run in order, the sandbox actually executes the
+// tests, and the Evaluator writes the final verdict once at the end.
 const STAGES: { id: Stage; label: string; result: string }[] = [
-    { id: 'analyzer',  label: 'Analyzer',  result: '1 finding' },
-    { id: 'critic',    label: 'Critic',    result: 'kept · 1' },
-    { id: 'improver',  label: 'Improver',  result: 'patched' },
-    { id: 'evaluator', label: 'Evaluator', result: 'improved · 100' },
+    { id: 'test-gen',  label: 'Test generator', result: '6 cases'         },
+    { id: 'analyzer',  label: 'Analyzer',       result: '1 finding'       },
+    { id: 'critic',    label: 'Critic',         result: 'kept · 1'        },
+    { id: 'improver',  label: 'Improver',       result: 'patched'         },
+    { id: 'tests',     label: 'Tests',          result: '6/6 passing'     },
+    { id: 'evaluator', label: 'Evaluator',      result: 'improved · 100'  },
 ];
 
-const TICK_MS = 3000;  // uniform tick — each state holds for this long
+const TICK_MS = 2400;  // uniform tick — each state holds for this long
 
 export function HeroVisual() {
     // 0..STAGES.length-1 → that stage is currently running

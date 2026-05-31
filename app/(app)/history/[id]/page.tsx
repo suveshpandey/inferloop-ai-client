@@ -16,7 +16,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiRequestError } from '@/lib/api';
 import { LoadingState } from '@/components/ui/spinner';
 import { Card } from '@/components/ui/card';
-import { ReviewResults } from '@/components/ReviewResults';
+import { ReviewResults, FinalEvaluation } from '@/components/ReviewResults';
+import { TestCasePanel } from '@/components/TestCasePanel';
 import type { IterationData } from '@/app/(app)/review/page';
 import type { RunDetail, LoopResult } from '@/lib/types';
 
@@ -85,25 +86,30 @@ export default function HistoryDetailPage({ params }: Props) {
     }
 
     const iterations: IterationData[] = run.iterations.map((it) => ({
-        iteration: it.iterationIndex,
-        inputCode: it.inputCode,
-        analyzer:  it.analyzerOutput,
-        critic:    it.criticOutput,
-        improver:  it.improverOutput,
-        evaluator: it.evaluatorOutput,
+        iteration:    it.iterationIndex,
+        inputCode:    it.inputCode,
+        analyzer:     it.analyzerOutput,
+        critic:       it.criticOutput,
+        improver:     it.improverOutput,
+        testPassRate: it.testPassRate,
     }));
 
     const loopResult: LoopResult = {
         iterations: iterations.map((it) => ({
-            iteration:  it.iteration,
-            inputCode:  it.inputCode,
-            findings:   it.analyzer!,
-            reviewed:   it.critic!,
-            improved:   it.improver!,
-            evaluation: it.evaluator!,
+            iteration:    it.iteration,
+            inputCode:    it.inputCode,
+            findings:     it.analyzer!,
+            reviewed:     it.critic!,
+            improved:     it.improver!,
+            testResults:  it.testResults ?? [],
+            testPassRate: it.testPassRate ?? null,
         })),
         finalCode:         run.finalCode,
         terminationReason: run.terminationReason,
+        testCases:         run.testCases.map((c) => ({ name: c.name, input: c.input, expectedOutput: c.expectedOutput })),
+        testPassRate:      run.testPassRate ?? null,
+        finalResults:      [],
+        finalEvaluation:   run.finalEvaluation ?? null,
     };
 
     return (
@@ -143,6 +149,18 @@ export default function HistoryDetailPage({ params }: Props) {
                 language={run.language}
                 loopResult={loopResult}
             />
+
+            {/* Phase 2.4+ runs always have testCases; legacy runs render an empty list. */}
+            <TestCasePanel
+                runId={run.id}
+                initialCases={run.testCases}
+                initialResults={run.testResults}
+            />
+
+            {/* Final verdict — rendered last, after everything else. */}
+            {run.finalEvaluation && (
+                <FinalEvaluation data={run.finalEvaluation} />
+            )}
         </div>
     );
 }
