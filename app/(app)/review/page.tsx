@@ -36,11 +36,15 @@ const PROBLEM_STATEMENT_MIN = 10;
 // Evaluator runs once at the end (shown separately, below the pipeline).
 type PipelineStage = 'analyzer' | 'critic' | 'improver' | 'tests';
 
+// Glyphs match the canonical 5-agent landing-page numbering (01–05) — the
+// pre-loop test generator is 01, per-iteration agents are 02–04, the post-loop
+// evaluator is 05. The sandbox-tests sub-step uses the non-numeric "T" glyph
+// since it's infra, not an LLM agent.
 const STAGES: ReadonlyArray<{ key: PipelineStage; glyph: string; label: string }> = [
-    { key: 'analyzer',  glyph: '01', label: 'Analyzer'  },
-    { key: 'critic',    glyph: '02', label: 'Critic'    },
-    { key: 'improver',  glyph: '03', label: 'Improver'  },
-    { key: 'tests',     glyph: '04', label: 'Tests'     },
+    { key: 'analyzer',  glyph: '02', label: 'Analyzer'  },
+    { key: 'critic',    glyph: '03', label: 'Critic'    },
+    { key: 'improver',  glyph: '04', label: 'Improver'  },
+    { key: 'tests',     glyph: 'T',  label: 'Tests'     },
 ];
 
 type RunState = 'idle' | 'running' | 'done' | 'error';
@@ -700,7 +704,7 @@ export default function ReviewPage() {
                                     testsStatus === 'generating' && 'border-foreground text-foreground animate-pulse-soft',
                                     testsStatus === 'ready'      && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
                                 ].filter(Boolean).join(' ')}>
-                                    ★
+                                    01
                                 </div>
                                 <span className="font-mono text-xs">Test generation</span>
                                 <span className={[
@@ -761,6 +765,24 @@ export default function ReviewPage() {
                                     </div>
                                 );
                             })}
+
+                            {/* Live current-case sub-line — surfaces which
+                                test case the sandbox is executing RIGHT NOW
+                                (driven by test_case_start events). Anchored
+                                under the Tests row so it reads as detail for
+                                that step. */}
+                            {testsRunningFor !== null && testsRunningFor === sidebarIteration?.iteration && (() => {
+                                let runningIdx: number | null = null;
+                                for (let i = 0; i < liveCases.length; i++) {
+                                    if (caseLiveStatus[i] === 'running') { runningIdx = i; break; }
+                                }
+                                if (runningIdx === null) return null;
+                                return (
+                                    <p className="pl-9 pt-0.5 font-mono text-[10px] text-foreground/80 animate-pulse-soft">
+                                        case {runningIdx + 1}/{liveCases.length}: <span className="text-muted-foreground">{liveCases[runningIdx]?.name ?? ''}</span>
+                                    </p>
+                                );
+                            })()}
                         </div>
 
                         {/* Final evaluator event — same tile pattern as the
@@ -777,7 +799,7 @@ export default function ReviewPage() {
                                     finalEvalStatus === 'running' && 'border-foreground text-foreground animate-pulse-soft',
                                     finalEvalStatus === 'done'    && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
                                 ].filter(Boolean).join(' ')}>
-                                    ✓
+                                    05
                                 </div>
                                 <span className="font-mono text-xs">Final evaluator</span>
                                 <span className={[
