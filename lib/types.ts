@@ -300,6 +300,15 @@ export type ExecuteTestsResponse = {
     ranAt:        string;
 };
 
+// SSE events from POST /api/runs/:id/execute-tests. case_start fires right
+// before each case runs in the sandbox; case_complete carries the classified
+// result; done is the batch summary; error is terminal.
+export type ExecuteTestStreamEvent =
+    | { type: 'case_start';    caseId: string; name: string }
+    | { type: 'case_complete'; caseId: string; result: ExecutedTestResult }
+    | { type: 'done';          results: ExecutedTestResult[]; testPassRate: number | null; ranAt: string }
+    | { type: 'error';         error: string };
+
 
 // ───────────────────────── API error envelope ──────────────────────────────
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ChevronDown, Repeat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,7 @@ const STAGES: ReadonlyArray<{ key: PipelineStage; glyph: string; label: string }
     { key: 'analyzer',  glyph: '02', label: 'Analyzer'  },
     { key: 'critic',    glyph: '03', label: 'Critic'    },
     { key: 'improver',  glyph: '04', label: 'Improver'  },
-    { key: 'tests',     glyph: 'T',  label: 'Tests'     },
+    { key: 'tests',     glyph: 'T',  label: 'Testing'   },
 ];
 
 type RunState = 'idle' | 'running' | 'done' | 'error';
@@ -619,6 +620,9 @@ export default function ReviewPage() {
                             loopResult={loopResult}
                             onKeep={onKeepIteration}
                             onDiscard={onDiscardIteration}
+                            liveCases={liveCases}
+                            caseLiveStatus={caseLiveStatus}
+                            testsRunningFor={testsRunningFor}
                         />
                     )}
 
@@ -678,45 +682,65 @@ export default function ReviewPage() {
                             </p>
                         </div>
 
-                        {/* Iteration indicator */}
-                        {hasResults && (
-                            <div className="mb-3 flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5">
-                                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                                    Iteration
-                                </span>
-                                <span className="ml-auto font-mono text-xs tabular-nums">
-                                    {sidebarIteration?.iteration ?? '—'} / {maxIterations}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Test-generation event — same visual pattern as the
-                            per-iteration stage tiles below, so the events card
-                            reads as one coherent timeline. */}
-                        {testsStatus !== 'idle' && (
+                        {/* Test-generation event — always rendered so the
+                            pipeline numbering reads 01 → 05 from the start.
+                            States: idle (pending), generating (running),
+                            ready (complete). Same visual idiom as the per-
+                            iteration stage tiles below. */}
+                        <div className={[
+                            'mb-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
+                            testsStatus === 'idle'       && 'border-border/60 bg-background/40',
+                            testsStatus === 'generating' && 'border-foreground/40 bg-background/60',
+                            testsStatus === 'ready'      && 'border-emerald-500/50 bg-emerald-500/10',
+                        ].filter(Boolean).join(' ')}>
                             <div className={[
-                                'mb-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
-                                testsStatus === 'generating' && 'border-foreground/40 bg-background/60',
-                                testsStatus === 'ready'      && 'border-emerald-500/50 bg-emerald-500/10',
+                                'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
+                                testsStatus === 'idle'       && 'border-border text-muted-foreground',
+                                testsStatus === 'generating' && 'border-foreground text-foreground animate-pulse-soft',
+                                testsStatus === 'ready'      && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
                             ].filter(Boolean).join(' ')}>
-                                <div className={[
-                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
-                                    testsStatus === 'generating' && 'border-foreground text-foreground animate-pulse-soft',
-                                    testsStatus === 'ready'      && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    01
-                                </div>
-                                <span className="font-mono text-xs">Test generation</span>
-                                <span className={[
-                                    'ml-auto font-mono text-[10px] uppercase tracking-widest',
-                                    testsStatus === 'generating' && 'text-foreground animate-pulse-soft',
-                                    testsStatus === 'ready'      && 'text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    {testsStatus === 'generating' ? '…' : `${testsCount} case${testsCount === 1 ? '' : 's'}`}
+                                01
+                            </div>
+                            <span className={[
+                                'font-mono text-xs transition-colors',
+                                testsStatus === 'idle' ? 'text-muted-foreground' : 'text-foreground',
+                            ].join(' ')}>
+                                Test generation
+                            </span>
+                            <span className={[
+                                'ml-auto font-mono text-[10px] uppercase tracking-widest',
+                                testsStatus === 'idle'       && 'text-muted-foreground/60',
+                                testsStatus === 'generating' && 'text-foreground animate-pulse-soft',
+                                testsStatus === 'ready'      && 'text-emerald-800 dark:text-emerald-300',
+                            ].filter(Boolean).join(' ')}>
+                                {testsStatus === 'idle'       && '—'}
+                                {testsStatus === 'generating' && '…'}
+                                {testsStatus === 'ready'      && `${testsCount} case${testsCount === 1 ? '' : 's'}`}
+                            </span>
+                        </div>
+
+                        {/* Connector — visually links 01 to the loop block. */}
+                        <PipelineConnector active={testsStatus === 'ready' && runState === 'running'} />
+
+                        {/* Iterative loop block — wraps the per-iteration
+                            stages in a labelled bracket so it reads as a unit
+                            that cycles, not four parallel steps. */}
+                        <div className={[
+                            'relative rounded-lg border border-dashed px-3 pt-7 pb-3 transition-colors',
+                            runState === 'running' ? 'border-foreground/30 bg-background/30' : 'border-border/60 bg-background/20',
+                        ].join(' ')}>
+                            <div className="absolute -top-2.5 left-3 flex items-center gap-1.5 rounded-md border border-border bg-background px-1.5 py-0.5">
+                                <Repeat className={[
+                                    'h-3 w-3',
+                                    runState === 'running' ? 'text-foreground animate-pulse-soft' : 'text-muted-foreground',
+                                ].join(' ')} />
+                                <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                                    Loop
+                                </span>
+                                <span className="font-mono text-[10px] tabular-nums text-foreground">
+                                    {sidebarIteration?.iteration ?? '—'}/{maxIterations}
                                 </span>
                             </div>
-                        )}
-
                         <div className="space-y-1.5">
                             {STAGES.map((s) => {
                                 const status  = statusFor(s.key, activeStage, sidebarIteration, testsRunningFor);
@@ -785,32 +809,54 @@ export default function ReviewPage() {
                             })()}
                         </div>
 
-                        {/* Final evaluator event — same tile pattern as the
-                            test-generation tile above and the per-iteration
-                            stages between them. */}
-                        {finalEvalStatus !== 'idle' && (
-                            <div className={[
-                                'mt-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
-                                finalEvalStatus === 'running' && 'border-foreground/40 bg-background/60',
-                                finalEvalStatus === 'done'    && 'border-emerald-500/50 bg-emerald-500/10',
-                            ].filter(Boolean).join(' ')}>
-                                <div className={[
-                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
-                                    finalEvalStatus === 'running' && 'border-foreground text-foreground animate-pulse-soft',
-                                    finalEvalStatus === 'done'    && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    05
+                            {/* Back-edge arrow — visually closes the loop by
+                                showing T (Testing) feeding back into Analyzer
+                                when the run isn't done. */}
+                            {(sidebarIteration?.iteration ?? 0) < maxIterations && runState !== 'done' && (
+                                <div className="mt-2 flex items-center gap-1.5 pl-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                                    <Repeat className="h-3 w-3" />
+                                    <span>repeats until convergence</span>
                                 </div>
-                                <span className="font-mono text-xs">Final evaluator</span>
-                                <span className={[
-                                    'ml-auto font-mono text-[10px] uppercase tracking-widest',
-                                    finalEvalStatus === 'running' && 'text-foreground animate-pulse-soft',
-                                    finalEvalStatus === 'done'    && 'text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    {finalEvalStatus === 'running' ? '…' : (loopResult?.finalEvaluation?.verdict ?? '✓')}
-                                </span>
+                            )}
+                        </div>
+
+                        {/* Connector — loop block down to final evaluator. */}
+                        <PipelineConnector active={finalEvalStatus !== 'idle'} />
+
+                        {/* Final evaluator event — always rendered so the
+                            pipeline shows the full 01 → 05 timeline from the
+                            start, even before the loop reaches it. */}
+                        <div className={[
+                            'mt-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
+                            finalEvalStatus === 'idle'    && 'border-border/60 bg-background/40',
+                            finalEvalStatus === 'running' && 'border-foreground/40 bg-background/60',
+                            finalEvalStatus === 'done'    && 'border-emerald-500/50 bg-emerald-500/10',
+                        ].filter(Boolean).join(' ')}>
+                            <div className={[
+                                'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
+                                finalEvalStatus === 'idle'    && 'border-border text-muted-foreground',
+                                finalEvalStatus === 'running' && 'border-foreground text-foreground animate-pulse-soft',
+                                finalEvalStatus === 'done'    && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
+                            ].filter(Boolean).join(' ')}>
+                                05
                             </div>
-                        )}
+                            <span className={[
+                                'font-mono text-xs transition-colors',
+                                finalEvalStatus === 'idle' ? 'text-muted-foreground' : 'text-foreground',
+                            ].join(' ')}>
+                                Final evaluator
+                            </span>
+                            <span className={[
+                                'ml-auto font-mono text-[10px] uppercase tracking-widest',
+                                finalEvalStatus === 'idle'    && 'text-muted-foreground/60',
+                                finalEvalStatus === 'running' && 'text-foreground animate-pulse-soft',
+                                finalEvalStatus === 'done'    && 'text-emerald-800 dark:text-emerald-300',
+                            ].filter(Boolean).join(' ')}>
+                                {finalEvalStatus === 'idle'    && '—'}
+                                {finalEvalStatus === 'running' && '…'}
+                                {finalEvalStatus === 'done'    && (loopResult?.finalEvaluation?.verdict ?? '✓')}
+                            </span>
+                        </div>
 
                         {/* Footer — termination reason once the loop finishes */}
                         <p className="mt-4 border-t border-border/60 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
@@ -825,6 +871,23 @@ export default function ReviewPage() {
                     </Card>
                 </aside>
             </div>
+        </div>
+    );
+}
+
+// Vertical chevron-down connector that links the major pipeline blocks
+// (01 → loop → 05). Animates softly while the next stage is in flight.
+function PipelineConnector({ active }: { active: boolean }) {
+    return (
+        <div className="my-1.5 flex flex-col items-center" aria-hidden>
+            <span className={[
+                'h-2 w-px',
+                active ? 'bg-foreground/60' : 'bg-border',
+            ].join(' ')} />
+            <ChevronDown className={[
+                '-my-1 h-3 w-3',
+                active ? 'text-foreground animate-pulse-soft' : 'text-muted-foreground/60',
+            ].join(' ')} />
         </div>
     );
 }
