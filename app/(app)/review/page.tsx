@@ -457,7 +457,7 @@ export default function ReviewPage() {
             </header>
 
             {/* Main grid: results main column on the left, sticky pipeline sidebar on the right */}
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_280px]">
+            <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_300px]">
                 {/* MAIN COLUMN — form + result panels stacked */}
                 <div className="min-w-0 space-y-8">
                     {/* Input form */}
@@ -837,7 +837,7 @@ function PipelineNode({
     return (
         <div
             className={[
-                'group relative -mx-2 rounded-md px-2 py-1.5 transition-colors',
+                'group relative -mx-2 rounded-md px-2 py-2.5 transition-colors',
                 status === 'running' && 'bg-foreground/[0.035]',
             ].filter(Boolean).join(' ')}
         >
@@ -898,15 +898,15 @@ function PipelineNode({
                     plain text), italicized soft text when running, dot when
                     pending. */}
                 {status === 'complete' && meta ? (
-                    <span className="ml-auto rounded-full border border-emerald-500/25 bg-emerald-500/[0.07] px-1.5 py-[1px] font-mono text-[10px] tabular-nums lowercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                    <span className="ml-auto shrink-0 whitespace-nowrap rounded-full border border-emerald-500/25 bg-emerald-500/[0.07] px-2 py-[1px] font-mono text-[10px] tabular-nums lowercase tracking-wider text-emerald-700 dark:text-emerald-300">
                         {meta}
                     </span>
                 ) : status === 'running' ? (
-                    <span className="ml-auto font-mono text-[10px] lowercase tracking-wider text-foreground/70 animate-pulse-soft">
+                    <span className="ml-auto shrink-0 whitespace-nowrap font-mono text-[10px] lowercase tracking-wider text-foreground/70 animate-pulse-soft">
                         {meta ?? 'running…'}
                     </span>
                 ) : (
-                    <span className="ml-auto font-mono text-[10px] tracking-wider text-muted-foreground/30">
+                    <span className="ml-auto shrink-0 font-mono text-[10px] tracking-wider text-muted-foreground/30">
                         ·
                     </span>
                 )}
