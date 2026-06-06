@@ -18,6 +18,7 @@ import { useSidebar } from '@/contexts/SidebarContext';
 import { initialsFromIdentity } from '@/lib/user';
 import { api } from '@/lib/api';
 import { notifyError } from '@/lib/notify';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import type { RunSummary } from '@/lib/types';
 
 export function AppSidebar() {
@@ -26,12 +27,15 @@ export function AppSidebar() {
     const auth = useAuth();
     const { open, setOpen, recentsVersion, collapsed, toggleCollapsed, requestNewReview } = useSidebar();
     const [recents, setRecents] = useState<RunSummary[] | null>(null);
-    // Track per-row delete state so the row dims while its request is in
-    // flight. A simple set keeps it cheap — we only ever delete a handful.
-    const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+    // The run awaiting confirmation. Null = no modal open.
+    const [pendingDelete, setPendingDelete] = useState<RunSummary | null>(null);
+    // True while the confirmed delete request is in flight.
+    const [deleting, setDeleting] = useState(false);
 
-    const handleDelete = async (id: string) => {
-        setDeletingIds((prev) => new Set(prev).add(id));
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
+        const { id } = pendingDelete;
+        setDeleting(true);
         try {
             await api.deleteRun(id);
             // Optimistically drop from local state — no need to refetch.
@@ -39,14 +43,11 @@ export function AppSidebar() {
             // If we were on the deleted run's detail page, send the user back
             // to /review so they don't sit on a now-404 route.
             if (pathname === `/history/${id}`) router.replace('/review');
+            setPendingDelete(null);
         } catch (err) {
             notifyError(err, { description: 'Could not delete this review. Try again.' });
         } finally {
-            setDeletingIds((prev) => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-            });
+            setDeleting(false);
         }
     };
 
@@ -190,8 +191,8 @@ export function AppSidebar() {
                                         href={`/history/${r.id}`}
                                         label={r.title}
                                         active={pathname === `/history/${r.id}`}
-                                        deleting={deletingIds.has(r.id)}
-                                        onDelete={() => handleDelete(r.id)}
+                                        deleting={deleting && pendingDelete?.id === r.id}
+                                        onDelete={() => setPendingDelete(r)}
                                     />
                                 </li>
                             ))}
@@ -211,6 +212,28 @@ export function AppSidebar() {
                     />
                 )}
             </aside>
+
+            <ConfirmDialog
+                open={pendingDelete !== null}
+                title="Delete review"
+                description={
+                    <>
+                        <p>
+                            Permanently delete{' '}
+                            <span className="font-medium">“{pendingDelete?.title}”</span>?
+                        </p>
+                        <p className="mt-1.5 text-[12px] text-muted-foreground">
+                            This removes the run and its iterations from your history. This action cannot be undone.
+                        </p>
+                    </>
+                }
+                confirmLabel="Delete"
+                loadingLabel="Deleting…"
+                confirmVariant="destructive"
+                loading={deleting}
+                onCancel={() => { if (!deleting) setPendingDelete(null); }}
+                onConfirm={confirmDelete}
+            />
         </>
     );
 }

@@ -8,7 +8,7 @@ import type {
     RunSummary,
     RunDetail,
     TestCase,
-    ExecuteTestsResponse,
+    ExecuteTestStreamEvent,
 } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -207,9 +207,7 @@ export const api = {
         return request<void>(`/api/runs/${runId}/test-cases/${id}`, { method: 'DELETE' });
     },
 
-    executeTests(runId: string): Promise<ExecuteTestsResponse> {
-        return request<ExecuteTestsResponse>(`/api/runs/${runId}/execute-tests`, { method: 'POST' });
-    },
+    // executeTests is a stream — see executeTestsStream() below.
 
     // Streaming review — see reviewStream() below.
 };
@@ -282,6 +280,74 @@ export async function reviewStream(
             const rawFrame = buffer.slice(0, sepIdx);
             buffer = buffer.slice(sepIdx + 2);
             const parsed = parseFrame(rawFrame);
+            if (parsed) onEvent(parsed);
+        }
+    }
+}
+
+// ─────────────────────── Execute-tests SSE consumer ───────────────────────
+
+type ExecuteTestsStreamOpts = {
+    // Optional subset of case ids to run; omit/empty to run every case.
+    caseIds?: string[];
+    onEvent: (event: ExecuteTestStreamEvent) => void;
+    signal?: AbortSignal;
+};
+
+/**
+ * POST /api/runs/:runId/execute-tests as SSE. Each parsed frame is dispatched
+ * to `onEvent`. Resolves when the server sends `done` or `error` and closes;
+ * rejects on network/auth failure.
+ */
+export async function executeTestsStream(
+    runId: string,
+    { caseIds, onEvent, signal }: ExecuteTestsStreamOpts,
+): Promise<void> {
+    const body = caseIds && caseIds.length > 0 ? JSON.stringify({ caseIds }) : '{}';
+    const doFetch = async (token: string | null): Promise<Response> => {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            Accept:         'text/event-stream',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return fetch(`${API_URL}/api/runs/${runId}/execute-tests`, {
+            method: 'POST',
+            headers,
+            body,
+            signal,
+        });
+    };
+
+    let res = await doFetch(tokens.getAccess());
+    if (res.status === 401) {
+        const newAccess = await refreshAccessToken();
+        if (newAccess) res = await doFetch(newAccess);
+    }
+
+    if (!res.ok || !res.body) {
+        let payload: ApiError | undefined;
+        try { payload = await res.json() as ApiError; } catch { /* non-JSON */ }
+        throw new ApiRequestError(
+            res.status,
+            payload?.error ?? `Stream failed with status ${res.status}`,
+            payload?.details,
+        );
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        let sepIdx: number;
+        while ((sepIdx = buffer.indexOf('\n\n')) !== -1) {
+            const rawFrame = buffer.slice(0, sepIdx);
+            buffer = buffer.slice(sepIdx + 2);
+            const parsed = parseFrame(rawFrame) as ExecuteTestStreamEvent | null;
             if (parsed) onEvent(parsed);
         }
     }

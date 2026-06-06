@@ -28,6 +28,7 @@ import type {
     LiveTestResult,
     LoopResult,
     TerminationReason,
+    TestCaseSpec,
 } from '@/lib/types';
 
 type Props = {
@@ -36,9 +37,24 @@ type Props = {
     loopResult: LoopResult | null;
     onKeep?:    (iter: IterationData) => void;
     onDiscard?: (iter: IterationData) => void;
+    // Live test-run context for the iteration currently executing tests.
+    // Lets the accordion stream per-case pass/fail rows in real time instead
+    // of waiting for iteration_complete to flush them all at once.
+    liveCases?:        TestCaseSpec[];
+    caseLiveStatus?:   Record<number, 'running' | LiveTestResult>;
+    testsRunningFor?:  number | null;
 };
 
-export function ReviewResults({ iterations, language, loopResult, onKeep, onDiscard }: Props) {
+export function ReviewResults({
+    iterations,
+    language,
+    loopResult,
+    onKeep,
+    onDiscard,
+    liveCases,
+    caseLiveStatus,
+    testsRunningFor,
+}: Props) {
     if (iterations.length === 0) return null;
 
     const finalIteration = iterations[iterations.length - 1];
@@ -63,6 +79,12 @@ export function ReviewResults({ iterations, language, loopResult, onKeep, onDisc
                         defaultOpen={iter.iteration === finalIteration.iteration}
                         onKeep={onKeep}
                         onDiscard={onDiscard}
+                        liveCases={
+                            testsRunningFor === iter.iteration ? liveCases : undefined
+                        }
+                        caseLiveStatus={
+                            testsRunningFor === iter.iteration ? caseLiveStatus : undefined
+                        }
                     />
                 ))}
             </div>
@@ -123,8 +145,12 @@ function IterationAccordion({
     defaultOpen,
     onKeep,
     onDiscard,
+    liveCases,
+    caseLiveStatus,
 }: {
     iter: IterationData;
+    liveCases?:      TestCaseSpec[];
+    caseLiveStatus?: Record<number, 'running' | LiveTestResult>;
     language: string;
     defaultOpen: boolean;
     onKeep?:    (iter: IterationData) => void;
@@ -183,7 +209,14 @@ function IterationAccordion({
                 Monaco DiffEditor inside lazy-loads its own runtime. */}
             {open && (
                 <div className="border-t border-border/60 bg-background/30 px-5 py-6">
-                    <IterationBody iter={iter} language={language} onKeep={onKeep} onDiscard={onDiscard} />
+                    <IterationBody
+                        iter={iter}
+                        language={language}
+                        onKeep={onKeep}
+                        onDiscard={onDiscard}
+                        liveCases={liveCases}
+                        caseLiveStatus={caseLiveStatus}
+                    />
                 </div>
             )}
         </div>
@@ -195,12 +228,25 @@ function IterationBody({
     language,
     onKeep,
     onDiscard,
+    liveCases,
+    caseLiveStatus,
 }: {
     iter: IterationData;
     language: string;
     onKeep?:    (iter: IterationData) => void;
     onDiscard?: (iter: IterationData) => void;
+    liveCases?:      TestCaseSpec[];
+    caseLiveStatus?: Record<number, 'running' | LiveTestResult>;
 }) {
+    // Prefer the authoritative iteration_complete results once they arrive;
+    // otherwise stream the in-flight per-case status from the SSE events so the
+    // user sees cases tick by below Change Notes in real time.
+    const liveActive =
+        !iter.testResults &&
+        liveCases !== undefined &&
+        liveCases.length > 0 &&
+        caseLiveStatus !== undefined;
+
     return (
         <div className="space-y-8">
             {iter.analyzer  && <FindingsSection  data={iter.analyzer}  />}
@@ -214,11 +260,118 @@ function IterationBody({
                     onDiscard={onDiscard ? () => onDiscard(iter) : undefined}
                 />
             )}
-            {/* Per-iteration test results — measured sandbox pass/fail. */}
-            {iter.testResults && iter.testResults.length > 0 && (
+            {/* Per-iteration test results — measured sandbox pass/fail.
+                Streams live during the run; replaced by the authoritative
+                results list once iteration_complete arrives. */}
+            {iter.testResults && iter.testResults.length > 0 ? (
                 <TestResultsSection results={iter.testResults} passRate={iter.testPassRate ?? null} />
-            )}
+            ) : liveActive ? (
+                <LiveTestResultsSection
+                    cases={liveCases!}
+                    liveStatus={caseLiveStatus!}
+                />
+            ) : null}
         </div>
+    );
+}
+
+// Streaming companion to TestResultsSection — renders one row per generated
+// case, transitioning idle → running → pass/fail as test_case_start /
+// test_case_complete events arrive. Rendered only while this iteration is the
+// one currently executing tests; swapped out for TestResultsSection once
+// iteration_complete delivers the authoritative LiveTestResult[].
+function LiveTestResultsSection({
+    cases,
+    liveStatus,
+}: {
+    cases:      TestCaseSpec[];
+    liveStatus: Record<number, 'running' | LiveTestResult>;
+}) {
+    const [openIdx, setOpenIdx] = useState<number | null>(null);
+
+    const completed = Object.values(liveStatus).filter(
+        (s): s is LiveTestResult => s !== undefined && s !== 'running',
+    );
+    const passedCount    = completed.filter((r) => r.passed).length;
+    const completedCount = completed.length;
+    const anyRunning     = Object.values(liveStatus).some((s) => s === 'running');
+
+    return (
+        <section>
+            <SectionMarker
+                number="04"
+                label="Tests"
+                badge={`${passedCount}/${completedCount}${anyRunning ? ' · running…' : ''}`}
+            />
+            <Card className="gap-0 bg-card/50 p-2.5">
+                <ul className="space-y-1.5">
+                    {cases.map((c, i) => {
+                        const status = liveStatus[i];
+                        const open   = openIdx === i;
+                        const result = status && status !== 'running' ? status : null;
+                        const failReason = result ? (REASON_LABEL[result.errorReason] ?? result.errorReason) : null;
+                        return (
+                            <li
+                                key={i}
+                                className={`overflow-hidden rounded-md border bg-background/40 transition-colors ${
+                                    status === 'running'
+                                        ? 'border-foreground/40 bg-background/60'
+                                        : 'border-border/60'
+                                }`}
+                            >
+                                <button
+                                    type="button"
+                                    onClick={() => setOpenIdx(open ? null : i)}
+                                    className="flex w-full items-center gap-2 px-3 py-2 text-left"
+                                >
+                                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                        {String(i + 1).padStart(2, '0')}
+                                    </span>
+                                    <span className="truncate font-mono text-sm">{c.name}</span>
+                                    {result && (
+                                        <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                            {result.durationMs}ms
+                                        </span>
+                                    )}
+                                    {status === undefined && (
+                                        <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-muted-foreground/40">
+                                            queued
+                                        </span>
+                                    )}
+                                    {status === 'running' && (
+                                        <span className="ml-auto font-mono text-[10px] uppercase tracking-widest text-foreground animate-pulse-soft">
+                                            running…
+                                        </span>
+                                    )}
+                                    {result && (
+                                        <Badge
+                                            variant="outline"
+                                            className={`h-auto shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${
+                                                result.passed
+                                                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+                                                    : 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-200'
+                                            }`}
+                                        >
+                                            {result.passed ? 'pass' : failReason}
+                                        </Badge>
+                                    )}
+                                </button>
+                                {open && result && !result.passed && (
+                                    <div className="border-t border-border/60 bg-background/30 px-3 py-2">
+                                        <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                                            {result.errorReason === 'wrong_answer' ? 'Actual output' : 'Stderr / error'}
+                                        </p>
+                                        <pre className="themed-scrollbar max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/60 bg-background/60 p-2 font-mono text-xs leading-relaxed text-rose-700 dark:text-rose-200">
+                                            {(result.errorReason === 'wrong_answer' ? result.actualOutput : (result.stderr || result.errorReason)) || '(no output)'}
+                                        </pre>
+                                    </div>
+                                )}
+                            </li>
+                        );
+                    })}
+                </ul>
+            </Card>
+        </section>
     );
 }
 

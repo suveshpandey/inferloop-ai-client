@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Repeat, Check, AlertTriangle, CircleDashed } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Button } from '@/components/ui/button';
@@ -36,11 +37,15 @@ const PROBLEM_STATEMENT_MIN = 10;
 // Evaluator runs once at the end (shown separately, below the pipeline).
 type PipelineStage = 'analyzer' | 'critic' | 'improver' | 'tests';
 
+// Glyphs match the canonical 5-agent landing-page numbering (01–05) — the
+// pre-loop test generator is 01, per-iteration agents are 02–04, the post-loop
+// evaluator is 05. The sandbox-tests sub-step uses the non-numeric "T" glyph
+// since it's infra, not an LLM agent.
 const STAGES: ReadonlyArray<{ key: PipelineStage; glyph: string; label: string }> = [
-    { key: 'analyzer',  glyph: '01', label: 'Analyzer'  },
-    { key: 'critic',    glyph: '02', label: 'Critic'    },
-    { key: 'improver',  glyph: '03', label: 'Improver'  },
-    { key: 'tests',     glyph: '04', label: 'Tests'     },
+    { key: 'analyzer',  glyph: '02', label: 'Analyzer'  },
+    { key: 'critic',    glyph: '03', label: 'Critic'    },
+    { key: 'improver',  glyph: '04', label: 'Improver'  },
+    { key: 'tests',     glyph: 'T',  label: 'Testing'   },
 ];
 
 type RunState = 'idle' | 'running' | 'done' | 'error';
@@ -615,6 +620,9 @@ export default function ReviewPage() {
                             loopResult={loopResult}
                             onKeep={onKeepIteration}
                             onDiscard={onDiscardIteration}
+                            liveCases={liveCases}
+                            caseLiveStatus={caseLiveStatus}
+                            testsRunningFor={testsRunningFor}
                         />
                     )}
 
@@ -650,161 +658,430 @@ export default function ReviewPage() {
                     )}
                 </div>
 
-                {/* SIDEBAR — sticky pipeline status */}
+                {/* SIDEBAR — sticky pipeline status, rail-based timeline */}
                 <aside className="lg:sticky lg:top-20 lg:self-start">
                     <Card
                         className="animate-fade-up gap-0 bg-card/50 p-5"
                         style={{ animationDelay: '160ms' }}
                     >
-                        <div className="mb-3 flex items-center justify-between">
-                            <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                        {/* Header — title + run-state pill */}
+                        <div className="mb-5 flex items-center justify-between">
+                            <p className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                                 Pipeline
                             </p>
-                            <p className={[
-                                'font-mono text-[10px] uppercase tracking-widest',
-                                runState === 'running' && 'text-foreground animate-pulse-soft',
-                                runState === 'done'    && 'text-emerald-700 dark:text-emerald-300',
-                                runState === 'error'   && 'text-rose-700 dark:text-rose-300',
-                                runState === 'idle'    && 'text-muted-foreground/60',
-                            ].filter(Boolean).join(' ')}>
-                                {runState === 'idle'    && 'Ready'}
-                                {runState === 'running' && 'Streaming…'}
-                                {runState === 'done'    && 'Complete'}
-                                {runState === 'error'   && 'Failed'}
-                            </p>
+                            <RunStatePill state={runState} />
                         </div>
 
-                        {/* Iteration indicator */}
-                        {hasResults && (
-                            <div className="mb-3 flex items-center gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5">
-                                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                                    Iteration
-                                </span>
-                                <span className="ml-auto font-mono text-xs tabular-nums">
-                                    {sidebarIteration?.iteration ?? '—'} / {maxIterations}
-                                </span>
-                            </div>
-                        )}
+                        {/* Timeline rail — single column with absolutely-
+                            positioned status dots on a vertical line. One
+                            section per group: pre-loop (01), loop (02–T), and
+                            post-loop terminal (05). */}
+                        <div className="relative pl-7">
+                            {/* the rail itself — base track */}
+                            <span
+                                className="absolute left-[11px] top-1 bottom-1 w-px bg-gradient-to-b from-border/40 via-border/70 to-border/40"
+                                aria-hidden
+                            />
+                            {/* progress fill — emerald section grows downward
+                                as nodes complete. Computed from the same status
+                                logic the nodes use, so they stay in sync. */}
+                            <RailProgressFill
+                                fraction={computeProgressFraction({
+                                    testsStatus,
+                                    activeStage,
+                                    sidebarIteration,
+                                    testsRunningFor,
+                                    finalEvalStatus,
+                                })}
+                            />
 
-                        {/* Test-generation event — same visual pattern as the
-                            per-iteration stage tiles below, so the events card
-                            reads as one coherent timeline. */}
-                        {testsStatus !== 'idle' && (
-                            <div className={[
-                                'mb-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
-                                testsStatus === 'generating' && 'border-foreground/40 bg-background/60',
-                                testsStatus === 'ready'      && 'border-emerald-500/50 bg-emerald-500/10',
-                            ].filter(Boolean).join(' ')}>
-                                <div className={[
-                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
-                                    testsStatus === 'generating' && 'border-foreground text-foreground animate-pulse-soft',
-                                    testsStatus === 'ready'      && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    ★
-                                </div>
-                                <span className="font-mono text-xs">Test generation</span>
-                                <span className={[
-                                    'ml-auto font-mono text-[10px] uppercase tracking-widest',
-                                    testsStatus === 'generating' && 'text-foreground animate-pulse-soft',
-                                    testsStatus === 'ready'      && 'text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    {testsStatus === 'generating' ? '…' : `${testsCount} case${testsCount === 1 ? '' : 's'}`}
-                                </span>
-                            </div>
-                        )}
+                            {/* 01 — Test generation */}
+                            <PipelineNode
+                                glyph="01"
+                                label="Test generation"
+                                status={
+                                    testsStatus === 'ready'      ? 'complete' :
+                                    testsStatus === 'generating' ? 'running'  :
+                                                                   'pending'
+                                }
+                                meta={
+                                    testsStatus === 'ready'
+                                        ? `${testsCount} case${testsCount === 1 ? '' : 's'}`
+                                        : testsStatus === 'generating'
+                                            ? 'generating…'
+                                            : null
+                                }
+                            />
 
-                        <div className="space-y-1.5">
-                            {STAGES.map((s) => {
+                            {/* Loop section header — a quiet inline label
+                                that breaks the rail into "what cycles" without
+                                a heavy bordered wrapper. */}
+                            <LoopSectionLabel
+                                iteration={sidebarIteration?.iteration ?? null}
+                                maxIterations={maxIterations}
+                                active={isRunning}
+                            />
+
+                            {/* Per-iteration stages (02 → T) */}
+                            {STAGES.map((s, idx) => {
                                 const status  = statusFor(s.key, activeStage, sidebarIteration, testsRunningFor);
                                 const summary = summaryFor(s.key, sidebarIteration);
+
+                                // Show the live current-case detail right
+                                // under the Testing row (last loop stage)
+                                // so it reads as that step's detail.
+                                let detail: string | null = null;
+                                if (s.key === 'tests' &&
+                                    testsRunningFor !== null &&
+                                    testsRunningFor === sidebarIteration?.iteration) {
+                                    for (let i = 0; i < liveCases.length; i++) {
+                                        if (caseLiveStatus[i] === 'running') {
+                                            detail = `case ${i + 1}/${liveCases.length}: ${liveCases[i]?.name ?? ''}`;
+                                            break;
+                                        }
+                                    }
+                                }
+
                                 return (
-                                    <div
+                                    <PipelineNode
                                         key={s.key}
-                                        className={[
-                                            'flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
-                                            status === 'running'  && 'border-foreground/40 bg-background/60',
-                                            status === 'complete' && 'border-emerald-500/50 bg-emerald-500/10',
-                                            status === 'pending'  && 'border-border/60 bg-background/40',
-                                        ].filter(Boolean).join(' ')}
-                                    >
-                                        <div
-                                            className={[
-                                                'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
-                                                status === 'running'  && 'border-foreground text-foreground animate-pulse-soft',
-                                                status === 'complete' && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
-                                                status === 'pending'  && 'border-border text-muted-foreground',
-                                            ].filter(Boolean).join(' ')}
-                                        >
-                                            {s.glyph}
-                                        </div>
-                                        <span
-                                            className={[
-                                                'font-mono text-xs transition-colors',
-                                                status === 'complete' ? 'text-foreground' : '',
-                                                status === 'pending'  ? 'text-muted-foreground' : '',
-                                            ].join(' ')}
-                                        >
-                                            {s.label}
-                                        </span>
-                                        <span
-                                            className={[
-                                                'ml-auto font-mono text-[10px] uppercase tracking-widest transition-colors',
-                                                status === 'running'  && 'text-foreground animate-pulse-soft',
-                                                status === 'complete' && 'text-emerald-800 dark:text-emerald-300',
-                                                status === 'pending'  && 'text-muted-foreground/60',
-                                            ].filter(Boolean).join(' ')}
-                                        >
-                                            {status === 'complete' && (summary ?? '✓')}
-                                            {status === 'running'  && '…'}
-                                            {status === 'pending'  && '—'}
-                                        </span>
-                                    </div>
+                                        glyph={s.glyph}
+                                        label={s.label}
+                                        status={status}
+                                        meta={
+                                            status === 'complete' ? (summary ?? null) :
+                                            status === 'running'  ? 'running…'        :
+                                                                    null
+                                        }
+                                        detail={detail}
+                                        isLastInGroup={idx === STAGES.length - 1}
+                                    />
                                 );
                             })}
+
+                            {/* Loop closing hint — only while there are more
+                                iterations possible and the run hasn't ended. */}
+                            {(sidebarIteration?.iteration ?? 0) < maxIterations && runState !== 'done' && (
+                                <div className="-ml-7 my-2 flex items-center gap-2 pl-7">
+                                    <span className="h-px w-3 bg-border/60" />
+                                    <span className="font-mono text-[10px] lowercase tracking-wider text-muted-foreground/60 italic">
+                                        cycles until converged
+                                    </span>
+                                    <span className="h-px flex-1 bg-gradient-to-r from-border/40 via-border/20 to-transparent" />
+                                </div>
+                            )}
+
+                            {/* 05 — Final evaluator, the terminal node */}
+                            <PipelineNode
+                                glyph="05"
+                                label="Final evaluator"
+                                status={
+                                    finalEvalStatus === 'done'    ? 'complete' :
+                                    finalEvalStatus === 'running' ? 'running'  :
+                                                                    'pending'
+                                }
+                                meta={
+                                    finalEvalStatus === 'done'
+                                        ? (loopResult?.finalEvaluation?.verdict ?? null)
+                                        : finalEvalStatus === 'running'
+                                            ? 'evaluating…'
+                                            : null
+                                }
+                                terminal
+                            />
                         </div>
 
-                        {/* Final evaluator event — same tile pattern as the
-                            test-generation tile above and the per-iteration
-                            stages between them. */}
-                        {finalEvalStatus !== 'idle' && (
-                            <div className={[
-                                'mt-3 flex items-center gap-2.5 rounded-md border px-2.5 py-2 transition-colors',
-                                finalEvalStatus === 'running' && 'border-foreground/40 bg-background/60',
-                                finalEvalStatus === 'done'    && 'border-emerald-500/50 bg-emerald-500/10',
-                            ].filter(Boolean).join(' ')}>
-                                <div className={[
-                                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background font-mono text-[10px] transition-colors',
-                                    finalEvalStatus === 'running' && 'border-foreground text-foreground animate-pulse-soft',
-                                    finalEvalStatus === 'done'    && 'border-emerald-500/50 text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    ✓
-                                </div>
-                                <span className="font-mono text-xs">Final evaluator</span>
-                                <span className={[
-                                    'ml-auto font-mono text-[10px] uppercase tracking-widest',
-                                    finalEvalStatus === 'running' && 'text-foreground animate-pulse-soft',
-                                    finalEvalStatus === 'done'    && 'text-emerald-800 dark:text-emerald-300',
-                                ].filter(Boolean).join(' ')}>
-                                    {finalEvalStatus === 'running' ? '…' : (loopResult?.finalEvaluation?.verdict ?? '✓')}
-                                </span>
-                            </div>
-                        )}
-
-                        {/* Footer — termination reason once the loop finishes */}
-                        <p className="mt-4 border-t border-border/60 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                            {isRunning
-                                ? 'Streaming live from the agents.'
-                                : runState === 'done' && loopResult
-                                    ? TERMINATION_LABEL[loopResult.terminationReason]
-                                    : runState === 'error'
-                                        ? 'A stage failed — try again.'
-                                        : 'Paste the problem and your solution to start.'}
-                        </p>
+                        {/* Footer — status strip with an icon. Replaces the
+                            tiny muted uppercase line, which read as a caption
+                            instead of a verdict. */}
+                        <PipelineFooter
+                            runState={runState}
+                            loopResult={loopResult}
+                            isRunning={isRunning}
+                        />
                     </Card>
                 </aside>
             </div>
         </div>
     );
+}
+
+// ─────────────────────────── Pipeline primitives ──────────────────────────
+//
+// Rail-based timeline: each node renders as a row with an absolutely-
+// positioned dot anchored to a shared vertical rail (drawn by the parent).
+// Compared to bordered tiles + connectors, this gives a single continuous
+// flow and removes the visual noise of identical filled rectangles when
+// every stage completes.
+
+type NodeStatus = 'pending' | 'running' | 'complete';
+
+function PipelineNode({
+    glyph,
+    label,
+    status,
+    meta,
+    detail,
+    terminal,
+    isLastInGroup: _isLastInGroup,
+}: {
+    glyph:    string;
+    label:    string;
+    status:   NodeStatus;
+    meta?:    string | null;
+    detail?:  string | null;
+    terminal?: boolean;
+    isLastInGroup?: boolean;
+}) {
+    void _isLastInGroup;
+    return (
+        <div
+            className={[
+                'group relative -mx-2 rounded-md px-2 py-1.5 transition-colors',
+                status === 'running' && 'bg-foreground/[0.035]',
+            ].filter(Boolean).join(' ')}
+        >
+            {/* Dot on the rail. Sits at left:-7 → -7+11=4 from row start, which
+                centers it on the rail line drawn at absolute left:11px in the
+                parent (rail is 1px wide, dot is 9px → offset = 11 - 4 = 7).
+                We add a soft halo ring on running/complete to make the dot
+                feel anchored to the rail rather than floating on it. */}
+            <span aria-hidden className="absolute left-[-13px] top-3.5">
+                {/* halo / ring */}
+                <span
+                    className={[
+                        'absolute inset-[-5px] rounded-full transition-opacity',
+                        status === 'running'  && 'bg-foreground/15 animate-pulse-soft',
+                        status === 'complete' && 'bg-emerald-500/15',
+                        status === 'pending'  && 'opacity-0',
+                        terminal && status === 'complete' && 'inset-[-7px] bg-emerald-500/20',
+                    ].filter(Boolean).join(' ')}
+                />
+                {/* the dot itself */}
+                <span
+                    className={[
+                        'relative flex h-[9px] w-[9px] items-center justify-center rounded-full border transition-colors',
+                        status === 'complete' && 'border-emerald-400 bg-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.25)]',
+                        status === 'running'  && 'border-foreground bg-foreground',
+                        status === 'pending'  && 'border-border bg-background',
+                        terminal              && status === 'complete' && 'h-[11px] w-[11px]',
+                    ].filter(Boolean).join(' ')}
+                />
+            </span>
+
+            {/* Row content */}
+            <div className="flex items-center gap-2.5">
+                {/* Glyph chip — gives 01/02/T a part-number feel, with the
+                    border subtly tracking the node's status. */}
+                <span
+                    className={[
+                        'flex h-[18px] min-w-[22px] items-center justify-center rounded-[5px] border px-1 font-mono text-[10px] tabular-nums tracking-widest transition-colors',
+                        status === 'pending'  && 'border-border/60 bg-background/40 text-muted-foreground/55',
+                        status === 'running'  && 'border-foreground/30 bg-foreground/[0.04] text-foreground',
+                        status === 'complete' && 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-700 dark:text-emerald-300',
+                    ].filter(Boolean).join(' ')}
+                >
+                    {glyph}
+                </span>
+                <span
+                    className={[
+                        'font-mono text-[13px] transition-colors',
+                        status === 'pending'  && 'text-muted-foreground/60',
+                        status === 'running'  && 'text-foreground',
+                        status === 'complete' && 'text-foreground',
+                        terminal && 'font-medium tracking-tight',
+                    ].filter(Boolean).join(' ')}
+                >
+                    {label}
+                </span>
+                {/* Meta — small pill when complete (more "fact"-like than
+                    plain text), italicized soft text when running, dot when
+                    pending. */}
+                {status === 'complete' && meta ? (
+                    <span className="ml-auto rounded-full border border-emerald-500/25 bg-emerald-500/[0.07] px-1.5 py-[1px] font-mono text-[10px] tabular-nums lowercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                        {meta}
+                    </span>
+                ) : status === 'running' ? (
+                    <span className="ml-auto font-mono text-[10px] lowercase tracking-wider text-foreground/70 animate-pulse-soft">
+                        {meta ?? 'running…'}
+                    </span>
+                ) : (
+                    <span className="ml-auto font-mono text-[10px] tracking-wider text-muted-foreground/30">
+                        ·
+                    </span>
+                )}
+            </div>
+
+            {/* Optional detail line — used for the live "case 3/6: name" hint
+                under the Testing row. */}
+            {detail && (
+                <p className="mt-1 ml-[30px] rounded border-l border-foreground/20 pl-2 font-mono text-[10px] text-foreground/75 animate-pulse-soft">
+                    {detail}
+                </p>
+            )}
+        </div>
+    );
+}
+
+// Emerald progress overlay on top of the base rail. `fraction` is 0..1 —
+// 0 nothing complete, 1 final-evaluator done. Positioned identically to
+// the base rail, height scaled to the fraction.
+function RailProgressFill({ fraction }: { fraction: number }) {
+    const pct = Math.max(0, Math.min(1, fraction)) * 100;
+    if (pct === 0) return null;
+    return (
+        <span
+            aria-hidden
+            className="absolute left-[11px] top-1 w-px bg-gradient-to-b from-emerald-500/70 via-emerald-500/50 to-emerald-500/20 transition-[height] duration-500 ease-out"
+            style={{ height: `calc(${pct}% - 0.5rem)` }}
+        />
+    );
+}
+
+// Compute how far down the rail the "completed" emerald fill should reach.
+// 6 anchor points: 01 (test gen), 02 (analyzer), 03 (critic), 04 (improver),
+// T (tests), 05 (final). We award partial credit for the running step so the
+// fill visually leads the running dot rather than lagging behind it.
+function computeProgressFraction({
+    testsStatus,
+    activeStage,
+    sidebarIteration,
+    testsRunningFor,
+    finalEvalStatus,
+}: {
+    testsStatus:      'idle' | 'generating' | 'ready';
+    activeStage:      Stage | null;
+    sidebarIteration: IterationData | undefined;
+    testsRunningFor:  number | null;
+    finalEvalStatus:  'idle' | 'running' | 'done';
+}): number {
+    const ANCHORS = 6;
+    let done = 0;
+    let running = 0;
+    if (testsStatus === 'ready') done++;
+    else if (testsStatus === 'generating') running++;
+    for (const k of ['analyzer', 'critic', 'improver'] as const) {
+        if (sidebarIteration?.[k]) done++;
+        else if (activeStage === k) running++;
+    }
+    const testsComplete =
+        sidebarIteration &&
+        (sidebarIteration.testResults !== undefined || sidebarIteration.testPassRate !== undefined);
+    if (testsComplete) done++;
+    else if (testsRunningFor !== null && testsRunningFor === sidebarIteration?.iteration) running++;
+    if (finalEvalStatus === 'done') done++;
+    else if (finalEvalStatus === 'running') running++;
+    return (done + running * 0.5) / ANCHORS;
+}
+
+// Quiet inline section header that breaks the rail between Test generation
+// and the per-iteration stages — communicates "what follows cycles" without
+// the heavy dashed-border wrapper.
+function LoopSectionLabel({
+    iteration,
+    maxIterations,
+    active,
+}: {
+    iteration:     number | null;
+    maxIterations: number;
+    active:        boolean;
+}) {
+    return (
+        <div className="-ml-7 my-2 flex items-center gap-2 pl-7">
+            <span
+                className={[
+                    'flex h-[18px] items-center gap-1 rounded-full border px-1.5 font-mono text-[9px] uppercase tracking-widest transition-colors',
+                    active
+                        ? 'border-foreground/30 bg-foreground/[0.05] text-foreground'
+                        : 'border-border/60 bg-background/40 text-muted-foreground/80',
+                ].join(' ')}
+            >
+                <Repeat className={`h-2.5 w-2.5 ${active ? 'animate-pulse-soft' : ''}`} />
+                Loop
+            </span>
+            <span className="font-mono text-[10px] tabular-nums text-foreground/75">
+                {iteration ?? '—'}<span className="text-muted-foreground/50"> / </span>{maxIterations}
+            </span>
+            <span className="h-px flex-1 bg-gradient-to-r from-border/70 via-border/40 to-transparent" />
+        </div>
+    );
+}
+
+// Compact pill in the card header that reflects overall run state. Replaces
+// the muted uppercase text label so it actually reads as a status indicator.
+function RunStatePill({ state }: { state: RunState }) {
+    const cls =
+        state === 'running' ? 'border-foreground/40 bg-background/60 text-foreground animate-pulse-soft' :
+        state === 'done'    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' :
+        state === 'error'   ? 'border-rose-500/40   bg-rose-500/10   text-rose-700   dark:text-rose-300' :
+                              'border-border/60     bg-background/40 text-muted-foreground/70';
+    const label =
+        state === 'running' ? 'Streaming' :
+        state === 'done'    ? 'Complete'  :
+        state === 'error'   ? 'Failed'    :
+                              'Ready';
+    return (
+        <span className={`rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest ${cls}`}>
+            {label}
+        </span>
+    );
+}
+
+// Bottom strip — a clearly-styled outcome line with an icon. Replaces the
+// faint muted caption so the verdict reads as a verdict.
+function PipelineFooter({
+    runState,
+    loopResult,
+    isRunning,
+}: {
+    runState:   RunState;
+    loopResult: LoopResult | null;
+    isRunning:  boolean;
+}) {
+    if (runState === 'idle') {
+        return (
+            <p className="mt-5 border-t border-border/60 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
+                Paste the problem and your solution to start.
+            </p>
+        );
+    }
+    if (isRunning) {
+        return (
+            <p className="mt-5 flex items-center gap-2 border-t border-border/60 pt-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                <CircleDashed className="h-3 w-3 animate-spin text-foreground/70" />
+                Streaming live from the agents…
+            </p>
+        );
+    }
+    if (runState === 'error') {
+        return (
+            <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-3 py-2 text-rose-700 dark:text-rose-200">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <p className="font-mono text-[11px] leading-relaxed">
+                    A stage failed — try again.
+                </p>
+            </div>
+        );
+    }
+    if (runState === 'done' && loopResult) {
+        const reason = loopResult.terminationReason;
+        const isPositive = reason === 'all-pass' || reason === 'no-findings';
+        const isWarn     = reason === 'regressed';
+        const Icon = isPositive ? Check : (isWarn ? AlertTriangle : Repeat);
+        const tone =
+            isPositive ? 'border-emerald-500/30 bg-emerald-500/[0.07] text-emerald-800 dark:text-emerald-200' :
+            isWarn     ? 'border-amber-500/30   bg-amber-500/[0.07]   text-amber-800   dark:text-amber-200'   :
+                         'border-border/60      bg-background/40      text-foreground/85';
+        return (
+            <div className={`mt-5 flex items-start gap-2 rounded-md border px-3 py-2 ${tone}`}>
+                <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <p className="font-mono text-[11px] leading-relaxed">
+                    {TERMINATION_LABEL[reason]}
+                </p>
+            </div>
+        );
+    }
+    return null;
 }
 
 // ─────────────────────── Live generated test-cases list ──────────────────────

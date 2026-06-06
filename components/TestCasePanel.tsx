@@ -2,19 +2,21 @@
 
 // Test-case panel for the history detail view. One flat list of a run's test
 // cases (AI-generated + your own, distinguished by a small badge), each row
-// showing pass/fail from the latest execution. "Run tests" re-executes the
-// final code against every case; manual add / edit / delete curate the set.
+// showing pass/fail from the latest execution. "Run tests" streams per-case
+// progress live; each row also has its own Play button to rerun just that
+// case in isolation.
 
-import { useCallback, useMemo, useState } from 'react';
-import { api, ApiRequestError } from '@/lib/api';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { ApiRequestError, api, executeTestsStream } from '@/lib/api';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Spinner } from '@/components/ui/spinner';
 import { ChevronDown, Plus, Play, Trash2, Pencil } from 'lucide-react';
-import type { TestCase, TestResult, ExecutedTestResult } from '@/lib/types';
+import type { TestCase, TestResult } from '@/lib/types';
 
 // Common display shape for a case's latest result, from either the stored
 // TestResult (initial load) or a fresh execute-tests response.
@@ -48,6 +50,11 @@ function toDisplay(r: TestResult): DisplayResult {
 type FormState = { name: string; input: string; expectedOutput: string };
 const EMPTY_FORM: FormState = { name: '', input: '', expectedOutput: '' };
 
+// Per-row execution state. `queued` means the user clicked Run but the sandbox
+// hasn't reached this case yet (it's compile + earlier cases). `running` means
+// the sandbox is actively executing this case right now.
+type CellState = 'idle' | 'queued' | 'running';
+
 export function TestCasePanel({
     runId,
     initialCases,
@@ -61,12 +68,19 @@ export function TestCasePanel({
     const [results, setResults] = useState<Map<string, DisplayResult>>(
         () => new Map(initialResults.map((r) => [r.testCaseId, toDisplay(r)])),
     );
-    const [running, setRunning] = useState(false);
+    // Per-case live state keyed by case id. Drives the badge column.
+    const [cellState, setCellState] = useState<Map<string, CellState>>(() => new Map());
+    // True while ANY execute-tests stream is active. Disables global controls.
+    const [streaming, setStreaming] = useState(false);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const [adding, setAdding] = useState(false);
     const [form, setForm] = useState<FormState>(EMPTY_FORM);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
+    // Track the in-flight stream so we can abort if the component unmounts /
+    // the user navigates away. (Not user-cancellable yet — the sandbox bills
+    // the same either way once it's running.)
+    const abortRef = useRef<AbortController | null>(null);
 
     const passRate = useMemo(() => {
         if (cases.length === 0) return null;
@@ -76,25 +90,105 @@ export function TestCasePanel({
         return Math.round((100 * passed) / scored.length);
     }, [cases, results]);
 
-    const runTests = useCallback(async () => {
-        setRunning(true);
+    const runStream = useCallback(async (caseIds?: string[]) => {
+        if (streaming) return;
+        setStreaming(true);
+
+        const targetIds = caseIds && caseIds.length > 0
+            ? caseIds
+            : cases.map((c) => c.id);
+
+        // Mark targets as queued so the user sees activity on every row
+        // immediately, not just when the sandbox reaches it.
+        setCellState((prev) => {
+            const next = new Map(prev);
+            for (const id of targetIds) next.set(id, 'queued');
+            return next;
+        });
+
+        const controller = new AbortController();
+        abortRef.current = controller;
+
+        let total = 0;
         try {
-            const res = await api.executeTests(runId);
-            setResults(new Map(res.results.map((r: ExecutedTestResult) => [r.testCaseId, {
-                passed: r.passed, actualOutput: r.actualOutput, stderr: r.stderr,
-                errorReason: r.errorReason, durationMs: r.durationMs,
-            }])));
-            notifySuccess(`Ran ${res.results.length} test${res.results.length === 1 ? '' : 's'}`, {
-                description: res.testPassRate === null ? undefined : `${res.testPassRate}% passing`,
+            await executeTestsStream(runId, {
+                caseIds,
+                signal: controller.signal,
+                onEvent: (ev) => {
+                    switch (ev.type) {
+                        case 'case_start':
+                            setCellState((prev) => {
+                                const next = new Map(prev);
+                                next.set(ev.caseId, 'running');
+                                return next;
+                            });
+                            break;
+                        case 'case_complete': {
+                            const r = ev.result;
+                            setResults((prev) => {
+                                const next = new Map(prev);
+                                next.set(r.testCaseId, {
+                                    passed:       r.passed,
+                                    actualOutput: r.actualOutput,
+                                    stderr:       r.stderr,
+                                    errorReason:  r.errorReason,
+                                    durationMs:   r.durationMs,
+                                });
+                                return next;
+                            });
+                            setCellState((prev) => {
+                                const next = new Map(prev);
+                                next.delete(r.testCaseId);
+                                return next;
+                            });
+                            break;
+                        }
+                        case 'done':
+                            total = ev.results.length;
+                            // Clear any lingering queued/running states (e.g.
+                            // a compile-error short-circuit would have already
+                            // sent case_complete for each — this is defensive).
+                            setCellState((prev) => {
+                                if (prev.size === 0) return prev;
+                                const next = new Map(prev);
+                                for (const id of targetIds) next.delete(id);
+                                return next;
+                            });
+                            notifySuccess(
+                                `Ran ${total} test${total === 1 ? '' : 's'}`,
+                                {
+                                    description: ev.testPassRate === null
+                                        ? undefined
+                                        : `${ev.testPassRate}% passing`,
+                                },
+                            );
+                            break;
+                        case 'error':
+                            throw new Error(ev.error);
+                    }
+                },
             });
         } catch (err) {
-            notifyError(err instanceof ApiRequestError ? err.message : 'Test run failed', {
+            if (controller.signal.aborted) return;
+            notifyError(err instanceof ApiRequestError ? err.message : (err instanceof Error ? err.message : 'Test run failed'), {
                 description: 'The sandbox may be unavailable. Try again in a moment.',
             });
         } finally {
-            setRunning(false);
+            // Clear any rows still marked queued/running (e.g. after an error
+            // mid-stream) so the UI doesn't get stuck.
+            setCellState((prev) => {
+                if (prev.size === 0) return prev;
+                const next = new Map(prev);
+                for (const id of targetIds) next.delete(id);
+                return next;
+            });
+            if (abortRef.current === controller) abortRef.current = null;
+            setStreaming(false);
         }
-    }, [runId]);
+    }, [runId, cases, streaming]);
+
+    const runAll = useCallback(() => runStream(undefined), [runStream]);
+    const runOne = useCallback((id: string) => runStream([id]), [runStream]);
 
     const submitForm = useCallback(async () => {
         const name = form.name.trim();
@@ -147,10 +241,11 @@ export function TestCasePanel({
                 )}
                 <Button
                     type="button" variant="outline" size="sm"
-                    onClick={runTests} disabled={running || cases.length === 0}
+                    onClick={runAll} disabled={streaming || cases.length === 0}
                     className="h-7 gap-1.5 font-mono text-[10px] uppercase tracking-widest"
                 >
-                    <Play className="h-3 w-3" /> {running ? 'Running…' : 'Run tests'}
+                    {streaming ? <Spinner size="sm" /> : <Play className="h-3 w-3" />}
+                    {streaming ? 'Running…' : 'Run tests'}
                 </Button>
             </div>
 
@@ -164,10 +259,17 @@ export function TestCasePanel({
 
             <ul className="space-y-2">
                 {cases.map((c) => {
-                    const r = results.get(c.id);
-                    const open = expandedId === c.id;
+                    const r     = results.get(c.id);
+                    const cell  = cellState.get(c.id) ?? 'idle';
+                    const open  = expandedId === c.id;
                     return (
-                        <li key={c.id} className="overflow-hidden rounded-md border border-border/60 bg-background/40">
+                        <li
+                            key={c.id}
+                            className={[
+                                'overflow-hidden rounded-md border bg-background/40 transition-colors',
+                                cell === 'running' ? 'border-foreground/40 bg-background/60' : 'border-border/60',
+                            ].join(' ')}
+                        >
                             <div className="flex items-center gap-2 px-3 py-2.5">
                                 <button
                                     type="button"
@@ -178,9 +280,34 @@ export function TestCasePanel({
                                     <SourceBadge source={c.source} />
                                     <span className="truncate font-mono text-sm">{c.name}</span>
                                 </button>
-                                {r ? <ResultBadge result={r} /> : (
-                                    <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">not run</span>
-                                )}
+
+                                {/* Status column — live state wins; falls back
+                                    to the last persisted result; "not run"
+                                    otherwise. */}
+                                {cell === 'running'
+                                    ? <LiveBadge label="running" />
+                                    : cell === 'queued'
+                                        ? <LiveBadge label="queued" tone="muted" />
+                                        : r
+                                            ? <ResultBadge result={r} />
+                                            : <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/50">not run</span>
+                                }
+
+                                {/* Per-case Run button — reruns ONLY this case
+                                    through its own sandbox stream. Disabled
+                                    while any stream (this row's or the global
+                                    "Run tests") is in flight to avoid sandbox
+                                    contention. */}
+                                <button
+                                    type="button"
+                                    onClick={() => runOne(c.id)}
+                                    disabled={streaming}
+                                    className="text-muted-foreground/60 transition-colors hover:text-foreground disabled:opacity-40 disabled:hover:text-muted-foreground/60"
+                                    aria-label="Run this test case"
+                                    title="Run this test case"
+                                >
+                                    <Play className="h-3.5 w-3.5" />
+                                </button>
                                 <button
                                     type="button" onClick={() => startEdit(c)}
                                     className="text-muted-foreground/60 transition-colors hover:text-foreground"
@@ -279,6 +406,20 @@ function ResultBadge({ result }: { result: DisplayResult }) {
         >
             {label}
         </Badge>
+    );
+}
+
+// Used for queued/running states. `running` pulses softly; `queued` is dim.
+function LiveBadge({ label, tone = 'live' }: { label: string; tone?: 'live' | 'muted' }) {
+    return (
+        <span className={[
+            'shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-widest',
+            tone === 'live'
+                ? 'border-foreground/40 bg-background/60 text-foreground animate-pulse-soft'
+                : 'border-border/60 bg-background/40 text-muted-foreground/70',
+        ].join(' ')}>
+            {label}
+        </span>
     );
 }
 
