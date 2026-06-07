@@ -82,13 +82,13 @@ cd inferloop-client
 pnpm install
 ```
 
-Create `.env.local`:
+Copy `.env.example` → `.env.local` and adjust if your backend lives somewhere other than `http://localhost:3001`:
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
+```bash
+cp .env.example .env.local
 ```
 
-The `NEXT_PUBLIC_` prefix is required so the variable is exposed to browser code.
+The single variable is `NEXT_PUBLIC_API_URL` — the `NEXT_PUBLIC_` prefix is required so the value is exposed to browser code (the client makes HTTP + SSE calls directly from the browser).
 
 ---
 
@@ -168,7 +168,7 @@ Authenticated routes live in the `app/(app)/` route group, which mounts `AppSide
 
 The sidebar refetches Recents on four triggers: mount, `recentsVersion` bump from the review page (after `done`), pathname change, and window focus. That guarantees a fresh run appears the moment the loop finishes.
 
-The **review page** also has its own sticky "Pipeline" events card that mirrors the live stream: a top "Test generation" tile, four per-iteration stages (Analyzer · Critic · Improver · **Tests**), and a bottom "Final evaluator" tile — all sharing the same glyph-circle visual language with running/complete states.
+The **review page** also has its own sticky "Pipeline" card that mirrors the live stream as a rail-based timeline: a continuous vertical rail down the left edge, with status dots (`pending` hollow / `running` filled-pulse / `complete` emerald) anchored on the rail and a soft emerald progress overlay that grows downward as stages finish. The nodes are `01 Test generation` → an inline `↻ Loop · N/M` section header → `02 Analyzer` · `03 Critic` · `04 Improver` · `T Testing` (with a live `case X/Y: name` hint anchored under the Testing row while the sandbox is executing) → `05 Final evaluator` as a terminal node with a larger ringed dot. The header carries a `Streaming / Complete / Failed / Ready` pill; the footer is a tone-coded outcome strip (emerald ✓ for all-pass / no-findings, amber ⚠ for regressed, neutral ↻ for stalled / max-iterations / converged, rose ⚠ for errors).
 
 ---
 
