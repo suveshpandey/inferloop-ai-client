@@ -11,14 +11,16 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState, type MouseEvent } from 'react';
-import { Plus, X, UserRound, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
+import { Plus, X, UserRound, Trash2, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { initialsFromIdentity } from '@/lib/user';
+import { getLanguage } from '@/lib/languages';
 import { api } from '@/lib/api';
 import { notifyError } from '@/lib/notify';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { Input } from '@/components/ui/input';
 import type { RunSummary } from '@/lib/types';
 
 export function AppSidebar() {
@@ -27,6 +29,7 @@ export function AppSidebar() {
     const auth = useAuth();
     const { open, setOpen, recentsVersion, collapsed, toggleCollapsed, requestNewReview } = useSidebar();
     const [recents, setRecents] = useState<RunSummary[] | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
     // The run awaiting confirmation. Null = no modal open.
     const [pendingDelete, setPendingDelete] = useState<RunSummary | null>(null);
     // True while the confirmed delete request is in flight.
@@ -82,6 +85,13 @@ export function AppSidebar() {
         return () => window.removeEventListener('focus', onFocus);
     }, [auth.status]);
 
+    const filteredRecents = useMemo(() => {
+        if (!recents) return null;
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return recents;
+        return recents.filter((r) => r.title.toLowerCase().includes(q));
+    }, [recents, searchQuery]);
+
     useEffect(() => {
         setOpen(false);
     }, [pathname, setOpen]);
@@ -110,8 +120,8 @@ export function AppSidebar() {
                 className={[
                     'flex h-dvh shrink-0 flex-col border-r border-border bg-background',
                     'transition-[width,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width]',
-                    collapsed ? 'lg:w-14' : 'lg:w-60',
-                    'w-60',  // mobile drawer always full width
+                    collapsed ? 'lg:w-14' : 'lg:w-72',
+                    'w-72',  // mobile drawer always full width
                     'lg:sticky lg:top-0',
                     'fixed left-0 top-0 z-50 lg:translate-x-0',
                     open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
@@ -183,13 +193,41 @@ export function AppSidebar() {
                     <p className="mb-2 px-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                         Recents
                     </p>
-                    {recents && recents.length > 0 ? (
+                    {recents && recents.length > 0 && (
+                        <div className="relative mb-2">
+                            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/50" />
+                            <Input
+                                type="text"
+                                role="searchbox"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Search reviews…"
+                                aria-label="Search reviews by name"
+                                className={[
+                                    'h-8 bg-background/50 pl-8 text-[13px] placeholder:text-muted-foreground/50',
+                                    searchQuery ? 'pr-8' : 'pr-2.5',
+                                ].join(' ')}
+                            />
+                            {searchQuery.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSearchQuery('')}
+                                    aria-label="Clear search"
+                                    className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-accent/50 hover:text-foreground"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {filteredRecents && filteredRecents.length > 0 ? (
                         <ul className="themed-scrollbar -mr-1 flex-1 space-y-0.5 overflow-y-auto pr-1">
-                            {recents.map((r) => (
+                            {filteredRecents.map((r) => (
                                 <li key={r.id}>
                                     <RecentRow
                                         href={`/history/${r.id}`}
-                                        label={r.title}
+                                        label={stripLanguagePrefix(r.title, r.language)}
+                                        language={r.language}
                                         active={pathname === `/history/${r.id}`}
                                         deleting={deleting && pendingDelete?.id === r.id}
                                         onDelete={() => setPendingDelete(r)}
@@ -197,6 +235,10 @@ export function AppSidebar() {
                                 </li>
                             ))}
                         </ul>
+                    ) : recents && recents.length > 0 && searchQuery.trim() ? (
+                        <div className="rounded-md border border-dashed border-border/70 px-3 py-4 text-center">
+                            <p className="text-[11px] text-muted-foreground">No matching reviews</p>
+                        </div>
                     ) : (
                         <RecentEmptyState />
                     )}
@@ -285,12 +327,14 @@ function NavRow({
 function RecentRow({
     href,
     label,
+    language,
     active,
     deleting,
     onDelete,
 }: {
     href: string;
     label: string;
+    language: string;
     active: boolean;
     deleting: boolean;
     onDelete: () => void;
@@ -311,13 +355,14 @@ function RecentRow({
                 href={href}
                 aria-disabled={deleting}
                 className={[
-                    'flex items-center rounded-md px-2 py-1.5 pr-7 text-[13px] transition-colors',
+                    'flex items-center gap-2 rounded-md px-2 py-1.5 pr-7 text-[13px] transition-colors',
                     active
                         ? 'bg-accent/60 text-foreground'
                         : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
                 ].join(' ')}
             >
-                <span className="truncate">{label}</span>
+                <LanguagePill language={language} />
+                <span className="min-w-0 truncate">{label}</span>
             </Link>
             <button
                 type="button"
@@ -345,6 +390,51 @@ function RecentEmptyState() {
             </p>
         </div>
     );
+}
+
+const LANGUAGE_PILL_STYLES: Record<string, string> = {
+    python: [
+        'border-blue-600/25 bg-blue-600/[0.07] text-blue-800/90',
+        'dark:border-blue-400/12 dark:bg-blue-400/[0.05] dark:text-blue-400/50',
+    ].join(' '),
+    cpp: [
+        'border-orange-600/25 bg-orange-600/[0.07] text-orange-800/90',
+        'dark:border-orange-400/12 dark:bg-orange-400/[0.05] dark:text-orange-400/50',
+    ].join(' '),
+};
+
+function languagePillLabel(language: string): string {
+    const meta = getLanguage(language);
+    if (meta?.value === 'cpp') return 'C++';
+    if (meta?.value === 'python') return 'Py';
+    return language.slice(0, 3).toUpperCase();
+}
+
+function LanguagePill({ language }: { language: string }) {
+    const style =
+        LANGUAGE_PILL_STYLES[language.toLowerCase()] ??
+        'border-border/60 bg-background/60 text-muted-foreground';
+    return (
+        <span
+            className={[
+                'shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide',
+                style,
+            ].join(' ')}
+        >
+            {languagePillLabel(language)}
+        </span>
+    );
+}
+
+/** Titles are stored as "python · Two Sum" — drop the redundant prefix in the row. */
+function stripLanguagePrefix(title: string, language: string): string {
+    const prefix = `${language} · `;
+    if (title.startsWith(prefix)) return title.slice(prefix.length);
+    const alt = `${language.toLowerCase()} · `;
+    if (title.toLowerCase().startsWith(alt)) {
+        return title.slice(alt.length);
+    }
+    return title;
 }
 
 function ProfileStrip({

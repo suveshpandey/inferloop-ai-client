@@ -56,22 +56,22 @@ export default function Home() {
                     <span>InferLoop</span>
                     <span className="text-muted-foreground transition-colors group-hover:text-foreground">.ai</span>
                 </Link>
-                <nav className="flex items-center gap-1.5">
+                <nav className="flex items-center gap-1 sm:gap-1.5">
                     <Link
                         href="/how-it-works"
-                        className={`${buttonVariants({ variant: 'ghost' })} font-mono text-[15px] h-9 px-3.5`}
+                        className={`${buttonVariants({ variant: 'ghost' })} hidden font-mono text-[15px] h-9 px-3.5 sm:inline-flex`}
                     >
                         How it works
                     </Link>
                     <Link
                         href="/login"
-                        className={`${buttonVariants({ variant: 'ghost' })} font-mono text-[15px] h-9 px-3.5`}
+                        className={`${buttonVariants({ variant: 'ghost' })} font-mono text-[13px] h-9 px-2.5 sm:text-[15px] sm:px-3.5`}
                     >
                         Log in
                     </Link>
                     <Link
                         href="/signup"
-                        className={`${buttonVariants()} font-mono text-[15px] h-9 px-3.5`}
+                        className={`${buttonVariants()} font-mono text-[13px] h-9 px-2.5 sm:text-[15px] sm:px-3.5`}
                     >
                         Sign up
                     </Link>

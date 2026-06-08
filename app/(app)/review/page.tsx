@@ -515,7 +515,7 @@ export default function ReviewPage() {
                                         disabled={isRunning}
                                         className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-input/50 accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
                                     />
-                                    <span className="w-8 shrink-0 text-right font-mono text-sm tabular-nums">
+                                    <span className="w-8 shrink-0 pr-2 text-right font-mono text-sm tabular-nums">
                                         {maxIterations}
                                     </span>
                                 </div>
