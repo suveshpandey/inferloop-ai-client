@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { api, reviewStream } from '@/lib/api';
+import { api, reviewStream, ApiRequestError } from '@/lib/api';
 import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE, placeholderFor } from '@/lib/languages';
 import { notifyError, notifySuccess } from '@/lib/notify';
 import { ReviewResults, FinalEvaluation } from '@/components/ReviewResults';
@@ -401,6 +401,13 @@ export default function ReviewPage() {
                 setRunState('idle');
                 setActiveIteration(null);
                 setActiveStage(null);
+                return;
+            }
+            if (err instanceof ApiRequestError && err.status === 429) {
+                setRunState('idle');
+                setActiveIteration(null);
+                setActiveStage(null);
+                notifyError(err);
                 return;
             }
             setRunState('error');

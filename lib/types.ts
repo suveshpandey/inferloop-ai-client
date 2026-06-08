@@ -314,5 +314,9 @@ export type ExecuteTestStreamEvent =
 
 export type ApiError = {
     error: string;
+    code?: string;
+    limit?: number;
+    remaining?: number;
+    retryAfter?: number;
     details?: unknown;
 };

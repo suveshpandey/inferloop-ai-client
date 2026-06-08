@@ -41,12 +41,41 @@ export const tokens = {
 
 export class ApiRequestError extends Error {
     status: number;
+    code?: string;
+    retryAfter?: number;
+    limit?: number;
+    remaining?: number;
     details: unknown;
-    constructor(status: number, message: string, details?: unknown) {
+
+    constructor(status: number, message: string, opts?: {
+        code?: string;
+        retryAfter?: number;
+        limit?: number;
+        remaining?: number;
+        details?: unknown;
+    }) {
         super(message);
         this.status = status;
-        this.details = details;
+        this.code = opts?.code;
+        this.retryAfter = opts?.retryAfter;
+        this.limit = opts?.limit;
+        this.remaining = opts?.remaining;
+        this.details = opts?.details;
     }
+}
+
+function apiErrorFromResponse(status: number, payload: ApiError | undefined): ApiRequestError {
+    return new ApiRequestError(
+        status,
+        payload?.error ?? `Request failed with status ${status}`,
+        {
+            code:       payload?.code,
+            retryAfter: payload?.retryAfter,
+            limit:      payload?.limit,
+            remaining:  payload?.remaining,
+            details:    payload?.details,
+        },
+    );
 }
 
 // ─────────────────────── Core fetch with auto-refresh ──────────────────────
@@ -119,11 +148,7 @@ async function request<T>(path: string, opts: RequestOpts = {}): Promise<T> {
     if (!res.ok) {
         let payload: ApiError | undefined;
         try { payload = await res.json() as ApiError; } catch { /* non-JSON */ }
-        throw new ApiRequestError(
-            res.status,
-            payload?.error ?? `Request failed with status ${res.status}`,
-            payload?.details,
-        );
+        throw apiErrorFromResponse(res.status, payload);
     }
 
     // 204 No Content (e.g. /auth/logout)
@@ -258,11 +283,7 @@ export async function reviewStream(
     if (!res.ok || !res.body) {
         let payload: ApiError | undefined;
         try { payload = await res.json() as ApiError; } catch { /* non-JSON */ }
-        throw new ApiRequestError(
-            res.status,
-            payload?.error ?? `Stream failed with status ${res.status}`,
-            payload?.details,
-        );
+        throw apiErrorFromResponse(res.status, payload);
     }
 
     const reader = res.body.getReader();
@@ -327,11 +348,7 @@ export async function executeTestsStream(
     if (!res.ok || !res.body) {
         let payload: ApiError | undefined;
         try { payload = await res.json() as ApiError; } catch { /* non-JSON */ }
-        throw new ApiRequestError(
-            res.status,
-            payload?.error ?? `Stream failed with status ${res.status}`,
-            payload?.details,
-        );
+        throw apiErrorFromResponse(res.status, payload);
     }
 
     const reader = res.body.getReader();
