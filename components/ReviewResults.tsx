@@ -577,7 +577,7 @@ function EvaluatorSection({ data }: { data: EvaluatorOutput }) {
                 label="Final evaluation"
                 badge={<VerdictPill verdict={data.verdict} />}
             />
-            {data.rationale && <SectionSummary>{data.rationale}</SectionSummary>}
+            {data.rationale && <EvaluationRationale text={data.rationale} />}
 
             <Card className="gap-0 bg-background/50 p-5">
                 <ScoreBars scores={data.scores} />
@@ -639,6 +639,165 @@ function SectionSummary({ children }: { children: ReactNode }) {
         <p className="mb-4 max-w-3xl text-sm leading-relaxed text-muted-foreground">
             {children}
         </p>
+    );
+}
+
+// ─────────────────────────── Evaluation rationale ────────────────────────
+
+type RationaleBlock =
+    | { type: 'paragraph'; text: string }
+    | { type: 'ordered';   items: string[] }
+    | { type: 'unordered'; items: string[] };
+
+/** Turn a dense evaluator rationale into intro + point-wise blocks. */
+function parseEvaluationRationale(text: string): RationaleBlock[] {
+    const normalized = text.trim().replace(/\r\n/g, '\n');
+    if (!normalized) return [];
+
+    const lines = normalized.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length > 1) return parseRationaleLines(lines);
+
+    // Single paragraph — split embedded "1. … 2. …" lists common in LLM output.
+    return parseRationaleSingleLine(normalized);
+}
+
+function parseRationaleLines(lines: string[]): RationaleBlock[] {
+    const blocks: RationaleBlock[] = [];
+    let paragraphBuf: string[] = [];
+    let orderedBuf: string[] = [];
+    let unorderedBuf: string[] = [];
+
+    const flushParagraph = () => {
+        if (paragraphBuf.length === 0) return;
+        blocks.push({ type: 'paragraph', text: paragraphBuf.join(' ') });
+        paragraphBuf = [];
+    };
+    const flushOrdered = () => {
+        if (orderedBuf.length === 0) return;
+        blocks.push({ type: 'ordered', items: orderedBuf });
+        orderedBuf = [];
+    };
+    const flushUnordered = () => {
+        if (unorderedBuf.length === 0) return;
+        blocks.push({ type: 'unordered', items: unorderedBuf });
+        unorderedBuf = [];
+    };
+    const flushLists = () => {
+        flushOrdered();
+        flushUnordered();
+    };
+
+    for (const line of lines) {
+        const ordered = line.match(/^\d+[.)]\s+(.+)/);
+        const unordered = line.match(/^[-*•]\s+(.+)/);
+
+        if (ordered) {
+            flushParagraph();
+            flushUnordered();
+            orderedBuf.push(ordered[1]!);
+        } else if (unordered) {
+            flushParagraph();
+            flushOrdered();
+            unorderedBuf.push(unordered[1]!);
+        } else {
+            flushLists();
+            paragraphBuf.push(line);
+        }
+    }
+
+    flushParagraph();
+    flushLists();
+    return blocks;
+}
+
+function parseRationaleSingleLine(text: string): RationaleBlock[] {
+    const markers = [...text.matchAll(/\d+\.\s+/g)];
+    if (markers.length < 2) return [{ type: 'paragraph', text }];
+
+    const blocks: RationaleBlock[] = [];
+    const firstIdx = markers[0]!.index!;
+    if (firstIdx > 0) {
+        const intro = text.slice(0, firstIdx).trim().replace(/[:;]\s*$/, '');
+        if (intro) blocks.push({ type: 'paragraph', text: intro });
+    }
+
+    const items: string[] = [];
+    for (let i = 0; i < markers.length; i++) {
+        const start = markers[i]!.index! + markers[i]![0].length;
+        const end = i + 1 < markers.length ? markers[i + 1]!.index! : text.length;
+        const item = text.slice(start, end).trim();
+        if (item) items.push(item);
+    }
+    if (items.length > 0) blocks.push({ type: 'ordered', items });
+    return blocks.length > 0 ? blocks : [{ type: 'paragraph', text }];
+}
+
+/** Light inline formatting: **bold** and $math$ segments. */
+function formatInline(text: string): ReactNode {
+    const parts = text.split(/(\*\*[^*]+\*\*|\$[^$]+\$)/g).filter(Boolean);
+    if (parts.length === 1) return text;
+
+    return parts.map((part, i) => {
+        if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+                <strong key={i} className="font-medium text-foreground/90">
+                    {part.slice(2, -2)}
+                </strong>
+            );
+        }
+        if (part.startsWith('$') && part.endsWith('$')) {
+            return (
+                <span key={i} className="font-mono text-[0.92em] text-foreground/85">
+                    {part.slice(1, -1)}
+                </span>
+            );
+        }
+        return part;
+    });
+}
+
+function EvaluationRationale({ text }: { text: string }) {
+    const blocks = parseEvaluationRationale(text);
+    if (blocks.length === 0) return null;
+
+    return (
+        <Card className="mb-5 w-full gap-0 bg-background/50 p-5">
+            <div className="space-y-4">
+            {blocks.map((block, i) => {
+                if (block.type === 'paragraph') {
+                    return (
+                        <p key={i} className="text-sm leading-relaxed text-muted-foreground">
+                            {formatInline(block.text)}
+                        </p>
+                    );
+                }
+                if (block.type === 'ordered') {
+                    return (
+                        <ol key={i} className="space-y-3">
+                            {block.items.map((item, j) => (
+                                <li key={j} className="flex gap-3 text-sm leading-relaxed text-muted-foreground">
+                                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border/60 bg-background/80 font-mono text-[10px] tabular-nums text-muted-foreground/80">
+                                        {j + 1}
+                                    </span>
+                                    <span className="min-w-0 flex-1">{formatInline(item)}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    );
+                }
+                return (
+                    <ul key={i} className="space-y-2 pl-1">
+                        {block.items.map((item, j) => (
+                            <li key={j} className="flex gap-2.5 text-sm leading-relaxed text-muted-foreground">
+                                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" aria-hidden />
+                                <span className="min-w-0 flex-1">{formatInline(item)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                );
+            })}
+            </div>
+        </Card>
     );
 }
 
