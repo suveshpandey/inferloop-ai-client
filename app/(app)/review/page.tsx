@@ -132,6 +132,10 @@ export default function ReviewPage() {
 
     // Stream state — now iteration-aware.
     const [runState, setRunState] = useState<RunState>('idle');
+    // Server-classified error code from the SSE `error` event. 'transient'
+    // means a cold-start / wake-up — we surface a friendlier message + a
+    // one-click Retry. 'persistent' falls through to the generic copy.
+    const [errorCode, setErrorCode] = useState<'transient' | 'persistent' | null>(null);
     const [activeIteration, setActiveIteration] = useState<number | null>(null);
     const [activeStage, setActiveStage] = useState<Stage | null>(null);
     const [iterations, setIterations] = useState<IterationData[]>([]);
@@ -233,6 +237,7 @@ export default function ReviewPage() {
         e.preventDefault();
 
         setRunState('running');
+        setErrorCode(null);
         setActiveIteration(null);
         setActiveStage(null);
         setIterations([]);
@@ -385,7 +390,12 @@ export default function ReviewPage() {
                                 setActiveIteration(null);
                                 setActiveStage(null);
                                 setRunState('error');
-                                notifyError(ev.error, { description: 'The review stream returned an error.' });
+                                setErrorCode(ev.code ?? 'persistent');
+                                notifyError(ev.error, {
+                                    description: ev.code === 'transient'
+                                        ? 'A backing service was warming up. Try again in a few seconds.'
+                                        : 'The review stream returned an error.',
+                                });
                                 break;
                         }
                     },
@@ -438,6 +448,12 @@ export default function ReviewPage() {
         code.trim().length > 0 &&
         problemStatement.trim().length >= PROBLEM_STATEMENT_MIN &&
         runState !== 'running';
+
+    // Re-run the same submit pipeline without a real form event — used by the
+    // sidebar's transient-error Retry button.
+    const onRetry = () => {
+        void onSubmit({ preventDefault: () => {} } as FormEvent);
+    };
     const isRunning  = runState === 'running';
     const hasResults = iterations.length > 0;
 
@@ -805,6 +821,8 @@ export default function ReviewPage() {
                             runState={runState}
                             loopResult={loopResult}
                             isRunning={isRunning}
+                            errorCode={errorCode}
+                            onRetry={canSubmit ? onRetry : null}
                         />
                     </Card>
                 </aside>
@@ -1040,10 +1058,14 @@ function PipelineFooter({
     runState,
     loopResult,
     isRunning,
+    errorCode,
+    onRetry,
 }: {
     runState:   RunState;
     loopResult: LoopResult | null;
     isRunning:  boolean;
+    errorCode:  'transient' | 'persistent' | null;
+    onRetry:    (() => void) | null;
 }) {
     if (runState === 'idle') {
         return (
@@ -1061,12 +1083,35 @@ function PipelineFooter({
         );
     }
     if (runState === 'error') {
+        const isTransient = errorCode === 'transient';
+        const tone = isTransient
+            ? 'border-amber-500/30 bg-amber-500/[0.07] text-amber-800 dark:text-amber-200'
+            : 'border-rose-500/30  bg-rose-500/[0.06]  text-rose-700   dark:text-rose-200';
+        const Icon = isTransient ? CircleDashed : AlertTriangle;
         return (
-            <div className="mt-5 flex items-start gap-2 rounded-md border border-rose-500/30 bg-rose-500/[0.06] px-3 py-2 text-rose-700 dark:text-rose-200">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <p className="font-mono text-[11px] leading-relaxed">
-                    A stage failed — try again.
-                </p>
+            <div className={`mt-5 flex flex-col gap-2 rounded-md border px-3 py-2.5 ${tone}`}>
+                <div className="flex items-start gap-2">
+                    <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <p className="font-mono text-[11px] leading-relaxed">
+                        {isTransient
+                            ? 'A backing service is waking up. This usually clears in a few seconds — try again.'
+                            : 'A stage failed — try again, or report it if it keeps failing.'}
+                    </p>
+                </div>
+                {onRetry && (
+                    <button
+                        type="button"
+                        onClick={onRetry}
+                        className={[
+                            'ml-5 self-start rounded-md border px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest transition-colors',
+                            isTransient
+                                ? 'border-amber-500/40 bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 dark:text-amber-100'
+                                : 'border-rose-500/40  bg-rose-500/10  text-rose-800  hover:bg-rose-500/20  dark:text-rose-100',
+                        ].join(' ')}
+                    >
+                        Retry →
+                    </button>
+                )}
             </div>
         );
     }
