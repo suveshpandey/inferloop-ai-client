@@ -196,7 +196,7 @@ export type StreamEvent =
     | { type: 'final_evaluation';          result: EvaluatorOutput }
     | { type: 'loop_complete';             result: LoopResult }
     | { type: 'done';                      result: LoopResult; runId: string | null }
-    | { type: 'error';                     error: string };
+    | { type: 'error';                     error: string; code?: 'transient' | 'persistent' };
 
 // ─────────────────────────── Run history shapes ───────────────────────────
 //

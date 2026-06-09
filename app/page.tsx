@@ -93,7 +93,7 @@ export default function Home() {
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-foreground" />
                         </span>
                         <span className="font-mono uppercase tracking-widest text-muted-foreground">
-                            Test-driven multi-agent review · streaming
+                            Test-driven multi-agent review + rewrite · streaming
                         </span>
                     </Badge>
 
@@ -102,23 +102,26 @@ export default function Home() {
                         className="animate-fade-up mt-8 text-balance text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl"
                         style={{ animationDelay: '80ms' }}
                     >
-                        Five agents.
+                        Reviewed.
                         <br />
-                        <span className="text-muted-foreground">One </span>
                         <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
-                            tested
+                            Tested
                         </span>
-                        <span className="text-muted-foreground"> review.</span>
+                        <span className="text-muted-foreground">. </span>
+                        <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
+                            Rewritten
+                        </span>
+                        <span className="text-muted-foreground">.</span>
                     </h1>
 
                     <p
                         className="animate-fade-up mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
                         style={{ animationDelay: '160ms' }}
                     >
-                        InferLoop runs your DSA / competitive-programming solution through five agents — and
-                        through test cases it actually executes in a Vercel sandbox. Measured pass-rate
-                        drives the loop, so the verdict is grounded in code that ran, not just an LLM
-                        opinion. Watch every stage stream back live.
+                        InferLoop runs your DSA / competitive-programming solution through five agents that
+                        review it, rewrite it, and re-test the rewrite against cases executed in a Vercel
+                        sandbox. Measured pass-rate drives the loop — the rewrite you get back is the one
+                        that actually scored highest. Watch every stage stream live.
                     </p>
 
                     {/* CTAs */}
@@ -183,10 +186,10 @@ export default function Home() {
             <section className="relative mx-auto max-w-6xl px-6 pb-20">
                 <div className="mb-6 flex items-baseline justify-between gap-4">
                     <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                        What each agent does
+                        Review → rewrite → re-test
                     </p>
                     <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">
-                        Five steps · one continuous flow
+                        Five steps · one continuous loop
                     </p>
                 </div>
 
@@ -221,7 +224,7 @@ export default function Home() {
                     className="animate-fade-up mt-16 font-mono text-xs text-muted-foreground"
                     style={{ animationDelay: '920ms' }}
                 >
-                    Sandboxed code execution · streaming SSE · provider-swappable LLM (Ollama · Gemini · Euri).
+                    Sandboxed code execution · iterative rewrite loop · streaming SSE · provider-swappable LLM (Ollama · Gemini · Euri).
                 </p>
             </section>
 

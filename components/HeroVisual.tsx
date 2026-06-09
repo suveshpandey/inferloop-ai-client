@@ -53,7 +53,7 @@ export function HeroVisual() {
                         <span className="h-3 w-3 rounded-full bg-[#28c840] ring-1 ring-inset ring-black/20" />
                     </div>
                     <span className="ml-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        inferloop · review
+                        inferloop · review + rewrite
                     </span>
                     <span className="ml-auto flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
                         <span className="relative flex h-1.5 w-1.5">
