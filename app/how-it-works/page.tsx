@@ -88,7 +88,7 @@ export default function HowItWorks() {
                     className="group flex items-baseline gap-0 font-mono text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
                 >
                     <span>InferLoop</span>
-                    <span className="text-muted-foreground transition-colors group-hover:text-foreground">.ai</span>
+                    <span className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">.ai</span>
                 </Link>
                 <nav className="flex items-center gap-1.5">
                     <Link

@@ -1,6 +1,15 @@
 'use client';
 
 import { Fragment, useEffect } from 'react';
+import { Star } from 'lucide-react';
+
+function GithubMark({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
+            <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.27-1.69-1.27-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.25 3.33.95.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.71 0-1.26.45-2.29 1.18-3.1-.12-.29-.51-1.46.11-3.04 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.24 2.75.12 3.04.74.81 1.18 1.84 1.18 3.1 0 4.44-2.69 5.42-5.25 5.7.41.36.78 1.05.78 2.13v3.16c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+        </svg>
+    );
+}
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +63,7 @@ export default function Home() {
                     className="group flex items-baseline gap-0 font-mono text-base font-semibold tracking-tight transition-opacity hover:opacity-80"
                 >
                     <span>InferLoop</span>
-                    <span className="text-muted-foreground transition-colors group-hover:text-foreground">.ai</span>
+                    <span className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">.ai</span>
                 </Link>
                 <nav className="flex items-center gap-1 sm:gap-1.5">
                     <Link
@@ -93,35 +102,42 @@ export default function Home() {
                             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-foreground" />
                         </span>
                         <span className="font-mono uppercase tracking-widest text-muted-foreground">
-                            Test-driven multi-agent review + rewrite · streaming
+                            <span className="text-foreground">AI</span> · test-driven multi-agent review + rewrite · streaming
                         </span>
                     </Badge>
 
-                    {/* Headline */}
+                    {/* Headline — same three verbs as before, but each is
+                        tinted so the AI signal lands at first glance, with
+                        a small "by five AI agents" tag underneath. */}
                     <h1
                         className="animate-fade-up mt-8 text-balance text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl"
                         style={{ animationDelay: '80ms' }}
                     >
-                        Reviewed.
-                        <br />
+                        <span className="text-foreground">Reviewed. </span>
                         <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
-                            Tested
+                            Tested.
                         </span>
-                        <span className="text-muted-foreground">. </span>
-                        <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
-                            Rewritten
-                        </span>
-                        <span className="text-muted-foreground">.</span>
+                        <span className="text-muted-foreground"> Rewritten.</span>
                     </h1>
+                    <p
+                        className="animate-fade-up mt-3 font-mono text-sm uppercase tracking-widest text-muted-foreground sm:text-base"
+                        style={{ animationDelay: '120ms' }}
+                    >
+                        by <span className="font-semibold text-foreground">five</span>{' '}
+                        <span className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text font-semibold text-transparent">
+                            AI agents
+                        </span>
+                        , in one streaming loop.
+                    </p>
 
                     <p
                         className="animate-fade-up mt-6 max-w-xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
                         style={{ animationDelay: '160ms' }}
                     >
-                        InferLoop runs your DSA / competitive-programming solution through five agents that
-                        review it, rewrite it, and re-test the rewrite against cases executed in a Vercel
-                        sandbox. Measured pass-rate drives the loop — the rewrite you get back is the one
-                        that actually scored highest. Watch every stage stream live.
+                        InferLoop runs your DSA / competitive-programming solution through a pipeline of
+                        five LLM-powered agents that review it, rewrite it, and re-test the rewrite against
+                        cases executed in a Vercel sandbox. Measured pass-rate drives the loop — the rewrite
+                        you get back is the one that actually scored highest. Watch every stage stream live.
                     </p>
 
                     {/* CTAs */}
@@ -135,6 +151,40 @@ export default function Home() {
                         <Link href="/login" className={buttonVariants({ variant: 'outline', size: 'lg' })}>
                             Log in
                         </Link>
+                    </div>
+
+                    {/* Open-source row — two small star pills sit right under the
+                        primary CTAs so the call-to-action remains the main thing
+                        while the project's openness is unmissable on first scan. */}
+                    <div
+                        className="animate-fade-up mt-5 flex flex-wrap items-center gap-x-3 gap-y-2"
+                        style={{ animationDelay: '320ms' }}
+                    >
+                        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Open source · star on GitHub
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <a
+                                href="https://github.com/suveshpandey/inferloop-ai-server"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-card/50 px-2.5 py-1 font-mono text-[11px] text-foreground/85 transition-colors hover:border-foreground/30 hover:bg-card hover:text-foreground"
+                            >
+                                <GithubMark className="h-3 w-3" />
+                                <span>inferloop-ai-server</span>
+                                <Star className="h-3 w-3 text-muted-foreground transition-colors group-hover:text-foreground" />
+                            </a>
+                            <a
+                                href="https://github.com/suveshpandey/inferloop-ai-client"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-card/50 px-2.5 py-1 font-mono text-[11px] text-foreground/85 transition-colors hover:border-foreground/30 hover:bg-card hover:text-foreground"
+                            >
+                                <GithubMark className="h-3 w-3" />
+                                <span>inferloop-ai-client</span>
+                                <Star className="h-3 w-3 text-muted-foreground transition-colors group-hover:text-foreground" />
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -154,7 +204,7 @@ export default function Home() {
                     style={{ animationDelay: '440ms' }}
                 >
                     <p className="mb-4 font-mono text-xs uppercase tracking-widest text-muted-foreground">
-                        The pipeline
+                        The <span className="text-foreground">AI</span> pipeline
                     </p>
                     <div className="relative overflow-hidden rounded-xl border border-border bg-card/40 p-6">
                         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground sm:text-xs">
