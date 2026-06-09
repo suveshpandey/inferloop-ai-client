@@ -13,7 +13,7 @@ export function Footer() {
                     className="group flex items-baseline gap-0 font-mono text-[11px] tracking-tight text-muted-foreground transition-colors hover:text-foreground"
                 >
                     <span>InferLoop</span>
-                    <span className="opacity-60 group-hover:opacity-100">.ai</span>
+                    <span className="bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">.ai</span>
                     <span className="ml-2 opacity-60">© {new Date().getFullYear()}</span>
                 </Link>
 
