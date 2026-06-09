@@ -327,7 +327,27 @@ export function TestCasePanel({
                                 <div className="grid gap-3 border-t border-border/60 bg-background/30 px-3 py-3 sm:grid-cols-2">
                                     <IoBlock label="Input" text={c.input} />
                                     <IoBlock label="Expected" text={c.expectedOutput} />
-                                    {r && !r.passed && <IoBlock label="Actual" text={r.actualOutput || r.stderr || '(no output)'} tone="bad" />}
+                                    {r && (
+                                        <IoBlock
+                                            label="Actual output"
+                                            text={r.actualOutput || '(no output)'}
+                                            tone={r.passed ? 'ok' : 'bad'}
+                                        />
+                                    )}
+                                    {r && r.stderr && (
+                                        <IoBlock label="Stderr" text={r.stderr} tone="bad" />
+                                    )}
+                                    {r && (
+                                        <div className="sm:col-span-2 flex items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-muted-foreground/70">
+                                            <span>{REASON_LABEL[r.errorReason] ?? r.errorReason}</span>
+                                            {r.durationMs !== null && (
+                                                <>
+                                                    <span className="text-muted-foreground/30">·</span>
+                                                    <span className="tabular-nums">{r.durationMs} ms</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </li>
@@ -423,13 +443,15 @@ function LiveBadge({ label, tone = 'live' }: { label: string; tone?: 'live' | 'm
     );
 }
 
-function IoBlock({ label, text, tone }: { label: string; text: string; tone?: 'bad' }) {
+function IoBlock({ label, text, tone }: { label: string; text: string; tone?: 'bad' | 'ok' }) {
+    const toneCls =
+        tone === 'bad' ? 'border-rose-500/30 bg-rose-500/[0.04] text-rose-700 dark:text-rose-200' :
+        tone === 'ok'  ? 'border-emerald-500/30 bg-emerald-500/[0.04] text-emerald-800 dark:text-emerald-200' :
+                         'border-border/60 bg-background/60 text-foreground/90';
     return (
         <div className="min-w-0">
             <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground/60">{label}</p>
-            <pre className={`themed-scrollbar max-h-40 overflow-auto whitespace-pre-wrap rounded border border-border/60 bg-background/60 p-2 font-mono text-xs leading-relaxed ${
-                tone === 'bad' ? 'text-rose-700 dark:text-rose-200' : 'text-foreground/90'
-            }`}>
+            <pre className={`themed-scrollbar max-h-40 overflow-auto whitespace-pre-wrap rounded border p-2 font-mono text-xs leading-relaxed ${toneCls}`}>
                 {text || '(empty)'}
             </pre>
         </div>
