@@ -1,6 +1,6 @@
 # InferLoop Client
 
-Frontend for **InferLoop AI** — a five-agent, test-driven code-review tool for DSA / competitive-programming submissions. You paste a problem statement + your Python or C++ solution; the UI streams every stage live (test generation → per-iteration agents → per-case sandbox results → final verdict) and saves the run to history. Built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui, and Monaco. Talks to the [`inferloop-server`](../inferloop-server) backend over HTTP + Server-Sent Events.
+Frontend for **InferLoop AI** — a five-agent, test-driven *review + rewrite* loop for DSA / competitive-programming submissions. You paste a problem statement + your Python or C++ solution; the UI streams every stage live (test generation → per-iteration agents → per-case sandbox results → final verdict) and saves the run to history. The rewrite you get back is the one that scored highest against the generated cases, not the latest. Built with Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, shadcn/ui, and Monaco. Talks to the [`inferloop-server`](../inferloop-server) backend over HTTP + Server-Sent Events.
 
 ---
 
@@ -153,7 +153,7 @@ Event types (all carry `type` in the JSON payload so they discriminate cleanly):
 - `final_evaluation_starting` / `final_evaluation` — the once-at-end verdict.
 - `loop_complete` — full loop result (iterations, finalCode, testCases, testPassRate, finalEvaluation, terminationReason).
 - `done` — server has persisted the run; carries `runId` for deep-linking.
-- `error` — pipeline failed; stream closes.
+- `error` — pipeline failed; stream closes. Payload carries an optional `code: 'transient' | 'persistent'` from the server's classifier (see *Error handling* below).
 
 ---
 
@@ -187,9 +187,22 @@ The same structure renders on the history page from `GET /api/runs/:id`.
 
 ## Public pages
 
-- **`/`** — marketing landing. 5-agent pipeline strip, agent cards, animated HeroVisual.
+- **`/`** — marketing landing. Top-to-bottom: gradient-accented brand mark, hero tag pill ("AI · test-driven multi-agent review + rewrite · streaming"), tinted three-verb headline (`Reviewed. Tested. Rewritten.`), `by five AI agents, in one streaming loop.` subline, primary CTAs (Get started / Log in), an **open-source row** with two GitHub star pills linking to the [`inferloop-ai-server`](https://github.com/suveshpandey/inferloop-ai-server) and [`inferloop-ai-client`](https://github.com/suveshpandey/inferloop-ai-client) repos, animated `HeroVisual` console on the right, a 5-glyph "AI pipeline" strip, and per-agent cards. Mobile-first: the navbar collapses the "How it works" link and shrinks Login/Signup padding below `sm:` so brand + CTAs + theme toggle all fit on small screens.
 - **`/how-it-works`** — deep-dive: 6 numbered steps (submit → generate → loop → terminate → best wins + evaluator → save), 4 design principles, a tech-stack table, and an adaptive CTA (Get started / Start a review).
-- Both share the minimal `<Footer />` (brand + © + "How it works" / "Log in" links).
+- Both share the minimal `<Footer />` (brand + © + "How it works" / "Log in" links) and the same gradient `.ai` brand-mark.
+
+---
+
+## Error handling
+
+When the SSE stream emits an `error` event, the review page branches on the server-supplied `code`:
+
+| `code` | Surface |
+|---|---|
+| `transient` | **Amber** panel with a `CircleDashed` icon, copy *"A backing service is waking up. This usually clears in a few seconds — try again."*, and a **Retry →** button that re-submits the same run without reloading. Triggered by DB cold-start, Vercel Sandbox 5xx/429, transient fetch errors. |
+| `persistent` *(or missing)* | **Rose** panel with an `AlertTriangle`, copy *"A stage failed — try again, or report it if it keeps failing."*, and a Retry button. |
+
+The toast also splits — a transient error gets the "waking up" sub-description; a persistent one gets the generic "stream returned an error" line. The retry button reuses the same submit pipeline so the in-flight code / problem statement / iteration cap are preserved verbatim.
 
 ---
 
@@ -198,6 +211,23 @@ The same structure renders on the history page from `GET /api/runs/:id`.
 Light + dark themes are driven by CSS variables in `app/globals.css` (OKLCH, shadcn-style). `ThemeContext` applies a `.dark` class on `<html>` and persists the choice under `inferloop.theme`. A pre-paint inline script in `app/layout.tsx` reads the stored preference before React hydrates, preventing FOUC.
 
 Monaco gets its own theme pair in `lib/monaco-theme.ts` (`inferloop-mono` + `inferloop-mono-light`) — re-applied on theme change without remounting the editor.
+
+The light-mode `--muted-foreground` token is tuned to `oklch(0.42 0 0)` so the ~47 callers that layer it with `/60` / `/70` opacity (sidebar section labels, loop hints, status pills, detail strips, ...) still meet contrast on white. Dark mode is untouched.
+
+---
+
+## Deployment
+
+The client is a standard Next.js app — deploy to Vercel or any Next-compatible host. The one environment variable that matters is `NEXT_PUBLIC_API_URL`:
+
+| Environment | Value |
+|---|---|
+| Local dev (`.env.local`) | `http://localhost:3001` |
+| Production (Vercel dashboard → Project Settings → Environment Variables) | The deployed backend's URL, e.g. `https://your-backend.example.com` |
+
+The `NEXT_PUBLIC_` prefix is required so the value is baked into the client bundle at build time. After changing it in the Vercel dashboard, **redeploy** the frontend so the new value is picked up.
+
+Make sure the backend's `CORS_ORIGIN` (comma-separated list) includes the frontend's deployed origin — otherwise the browser will block the SSE stream.
 
 ---
 
