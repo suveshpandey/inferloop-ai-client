@@ -153,8 +153,8 @@ export default function HistoryDetailPage({ params }: Props) {
             {/* Phase 2.4+ runs always have testCases; legacy runs render an empty list. */}
             <TestCasePanel
                 runId={run.id}
-                initialCases={run.testCases}
-                initialResults={run.testResults}
+                initialCases={run.testCases ?? []}
+                initialResults={run.testResults ?? []}
             />
 
             {/* Final verdict — rendered last, after everything else. */}
